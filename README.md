@@ -8,8 +8,8 @@
 
 <dependency>  
   <groupId>com.github.CodingAir</groupId>
-	<artifactId>PacketManagement</artifactId>
-	<version>1.0</version>
+  <artifactId>PacketManagement</artifactId>
+  <version>1.0</version>
   <scope>compile</scope>
 </dependency>
 ```
