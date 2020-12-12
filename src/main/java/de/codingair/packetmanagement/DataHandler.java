@@ -3,6 +3,7 @@ package de.codingair.packetmanagement;
 import com.google.common.collect.HashBiMap;
 import de.codingair.packetmanagement.packets.*;
 import de.codingair.packetmanagement.packets.exceptions.*;
+import de.codingair.packetmanagement.utils.SuccessPacket;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -13,7 +14,6 @@ import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 
 public abstract class DataHandler<C> {
     private final HashBiMap<Class<? extends Packet<?>>, Integer> register = HashBiMap.create();
@@ -31,6 +31,10 @@ public abstract class DataHandler<C> {
         channelBackend = channelName + ":backend";
         channelProxy = channelName + ":proxy";
 
+        //register standard packets
+        registerPacket(SuccessPacket.class);
+
+        //register custom packets
         registering();
         id = -1;
     }
