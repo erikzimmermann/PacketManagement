@@ -1,60 +1,96 @@
 package de.codingair.packetmanagement;
 
 import com.google.common.collect.HashBiMap;
-import de.codingair.packetmanagement.packets.Packet;
-import de.codingair.packetmanagement.packets.PacketHandler;
-import de.codingair.packetmanagement.packets.RequestPacket;
-import de.codingair.packetmanagement.packets.ResponsiblePacketHandler;
-import de.codingair.packetmanagement.packets.exceptions.UnknownPacketException;
+import de.codingair.packetmanagement.packets.*;
+import de.codingair.packetmanagement.packets.exceptions.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
 import java.util.Optional;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 public abstract class DataHandler<C> {
     private final HashBiMap<Class<? extends Packet<?>>, Integer> register = HashBiMap.create();
-    private int ID = 0;
+    private int id = 0;
 
     protected final String channelBackend, channelProxy;
-    protected final ConcurrentHashMap<UUID, CompletableFuture<?>> future = new ConcurrentHashMap<>();
+    protected final ConcurrentHashMap<UUID, CompletableFuture<? extends ResponsePacket>> future = new ConcurrentHashMap<>();
+    protected final ConcurrentHashMap<UUID, Long> timeSpecific = new ConcurrentHashMap<>();
+
+    protected final Timer timeOutTimer = new Timer("DataHandler-TimeOut");
+    protected boolean running = false;
+    protected long timeOut = 250L;
 
     public DataHandler(String channelName) {
         channelBackend = channelName + ":backend";
         channelProxy = channelName + ":proxy";
 
         registering();
-        ID = -1;
+        id = -1;
     }
 
     protected abstract void registering();
 
+    public void registerPacket(Class<? extends Packet<?>> c) {
+        if(id == -1) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
+        register.put(c, id++);
+    }
+
     protected abstract void send(byte[] data, C connection);
 
-    public void send(@NotNull Packet<?> packet, @NotNull C connection) {
+    public void send(@NotNull Packet<?> packet, @Nullable C connection) {
         send(packet, connection, null);
     }
 
-    private void send(@NotNull Packet<?> packet, @NotNull C connection, @Nullable UUID id) {
+    private void send(@NotNull Packet<?> packet, @Nullable C connection, @Nullable UUID id) {
         processPacket(packet, id).ifPresent(data -> send(data, connection));
     }
 
-    public <A> CompletableFuture<A> send(@NotNull RequestPacket<?, A> packet, @NotNull C connection) {
+    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<?, A> packet, @Nullable C connection) {
+        return send(packet, connection, 0);
+    }
+
+    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<?, A> packet, @Nullable C connection, long timeOut) {
         CompletableFuture<A> future = packet.buildFuture();
         UUID id = generateID();
 
+        if(timeOut > 0) {
+            if(!running) checkTimer(); //check timer before registering packets
+            this.timeSpecific.put(id, timeOut + System.currentTimeMillis());
+        }
         this.future.put(id, future);
+
         processPacket(packet, id).ifPresent(data -> send(data, connection));
 
         return future;
     }
 
-    private void registerPacket(Class<? extends Packet<?>> c) {
-        if(ID == -1) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
-        register.put(c, ID++);
+    /**
+     * Stops (if running) the active TimeOut-Timer and removes all references to timeOuts and completable futures.
+     */
+    public void purge() {
+        if(this.running) {
+            this.timeOutTimer.cancel();
+            this.timeOutTimer.purge();
+            running = false;
+        }
+
+        this.timeSpecific.clear();
+        this.future.clear();
+    }
+
+    private UUID generateID() {
+        UUID id;
+        do {
+            id = UUID.randomUUID();
+        } while(future.containsKey(id));
+        return id;
     }
 
     private int getId(Class<?> c) {
@@ -76,19 +112,34 @@ public abstract class DataHandler<C> {
         return (T) c.newInstance();
     }
 
-    public void receive(byte[] bytes, C connection) throws UnknownPacketException, IOException, InstantiationException, IllegalAccessException {
+    public <A extends ResponsePacket> void receive(@NotNull byte[] bytes, @Nullable C connection) throws IOException, InstantiationException, IllegalAccessException {
         DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes));
-        Packet<?> packet = formPacket(in.readUnsignedShort());
 
-        UUID id = in.readBoolean() ? new UUID(in.readLong(), in.readLong()) : null;
+        Packet<?> packet = formPacket(in.readUnsignedShort());
+        UUID id = packet instanceof AssignedPacket ? new UUID(in.readLong(), in.readLong()) : null;
         packet.read(in);
 
         if(packet instanceof RequestPacket) {
             RequestPacket<? extends ResponsiblePacketHandler<RequestPacket<?, ?>, ?>, ?> ap = (RequestPacket<? extends ResponsiblePacketHandler<RequestPacket<?, ?>, ?>, ?>) packet;
-            ap.getHandler().response(ap).thenAccept(response -> send(response, connection, id));
+            ResponsiblePacketHandler<RequestPacket<?, ?>, ?> handler = ap.getHandler();
+            if(handler == null) throw new NoHandlerException(ap.getClass());
+
+            if(handler.answer(ap)) handler.response(ap).thenAccept(response -> send(response, connection, id));
+        } else if(packet instanceof ResponsePacket) {
+            if(id == null) throw new NullPointerException("No id given! Cannot handle packet: " + packet.getClass());
+            A rp = (A) packet;
+
+            this.timeSpecific.remove(id);
+            CompletableFuture<A> cf = (CompletableFuture<A>) this.future.remove(id);
+            if(cf == null) throw new NullPointerException("No CompletableFuture given! Cannot handle response packet: " + rp.getClass());
+
+            cf.complete(rp);
         } else {
             Packet<? extends PacketHandler<Packet<?>>> singleton = (Packet<? extends PacketHandler<Packet<?>>>) packet;
-            singleton.getHandler().process(packet);
+            PacketHandler<Packet<?>> handler = singleton.getHandler();
+            if(handler == null) throw new NoHandlerException(singleton.getClass());
+
+            handler.process(packet);
         }
     }
 
@@ -97,16 +148,16 @@ public abstract class DataHandler<C> {
         DataOutputStream out = new DataOutputStream(stream);
 
         int id = getId(packet.getClass());
-        if(id == -1) throw new IllegalStateException(packet.getClass() + " is not registered!");
+        if(id == -1) throw new UnknownPacketException(packet.getClass() + " is not registered!");
 
         try {
             out.writeShort(id);
 
-            out.writeBoolean(uuid != null);
-            if(uuid != null) {
+            if(packet instanceof AssignedPacket) {
+                if(uuid == null) throw new NullPointerException("Cannot send assigned packet without UUID: " + packet.getClass());
                 out.writeLong(uuid.getMostSignificantBits());
                 out.writeLong(uuid.getLeastSignificantBits());
-            }
+            } else if(uuid != null) throw new UnsupportedIdException("Cannot send id (" + uuid + ") for unsupported packet class: " + packet.getClass());
 
             packet.write(out);
         } catch(IOException e) {
@@ -116,12 +167,27 @@ public abstract class DataHandler<C> {
         return Optional.of(stream.toByteArray());
     }
 
-    private UUID generateID() {
-        UUID id;
-        do {
-            id = UUID.randomUUID();
-        } while(future.containsKey(id));
-        return id;
+    private synchronized void checkTimer() {
+        if(running) return;
+        running = true;
+
+        try {
+            this.timeOutTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    long time = System.currentTimeMillis();
+                    timeSpecific.entrySet().removeIf(e ->  {
+                        if(time >= e.getValue()) {
+                            CompletableFuture<?> cf = future.remove(e.getKey());
+                            if(cf != null) cf.completeExceptionally(new TimeOutException("The requested packet took too long."));
+                            return true;
+                        } else return false;
+                    });
+                }
+            }, timeOut, timeOut);
+        } catch(IllegalStateException ex) {
+            throw new HandlerAlreadyPurgedException("This handler has already been purged.");
+        }
     }
 
     public String getChannelProxy() {

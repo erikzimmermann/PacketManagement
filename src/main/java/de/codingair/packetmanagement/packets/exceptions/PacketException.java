@@ -1,6 +1,6 @@
 package de.codingair.packetmanagement.packets.exceptions;
 
-public class PacketException extends Exception {
+public class PacketException extends RuntimeException {
     public PacketException() {
     }
 
