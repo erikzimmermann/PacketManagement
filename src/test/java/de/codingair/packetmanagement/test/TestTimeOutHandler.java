@@ -1,10 +1,10 @@
 package de.codingair.packetmanagement.test;
 
-import de.codingair.packetmanagement.SingleChannelDataHandler;
+import de.codingair.packetmanagement.SingleConnectionDataHandler;
 import de.codingair.packetmanagement.test.packets.NameRequestPacket;
 import de.codingair.packetmanagement.test.packets.StringPacket;
 
-public class TestTimeOutHandler extends SingleChannelDataHandler {
+public class TestTimeOutHandler extends SingleConnectionDataHandler {
     public TestTimeOutHandler() {
         super("test");
         timeOut = 10;

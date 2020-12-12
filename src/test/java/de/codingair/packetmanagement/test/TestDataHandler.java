@@ -1,12 +1,12 @@
 package de.codingair.packetmanagement.test;
 
-import de.codingair.packetmanagement.SingleChannelDataHandler;
+import de.codingair.packetmanagement.SingleConnectionDataHandler;
 import de.codingair.packetmanagement.test.packets.NameRequestPacket;
 import de.codingair.packetmanagement.test.packets.StringPacket;
 
 import java.io.IOException;
 
-public class TestDataHandler extends SingleChannelDataHandler {
+public class TestDataHandler extends SingleConnectionDataHandler {
     public TestDataHandler() {
         super("test");
     }
