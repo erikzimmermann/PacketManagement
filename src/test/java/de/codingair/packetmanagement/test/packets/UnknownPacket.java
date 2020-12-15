@@ -2,6 +2,8 @@ package de.codingair.packetmanagement.test.packets;
 
 import de.codingair.packetmanagement.packets.Packet;
 import de.codingair.packetmanagement.packets.PacketHandler;
+import de.codingair.packetmanagement.packets.Proxy;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -17,7 +19,7 @@ public class UnknownPacket implements Packet {
     }
 
     @Override
-    public PacketHandler<?> getHandler() {
+    public @NotNull PacketHandler<?> getHandler(Proxy proxy) {
         return null;
     }
 }

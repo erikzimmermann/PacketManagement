@@ -1,6 +1,8 @@
 package de.codingair.packetmanagement.test.packets;
 
+import de.codingair.packetmanagement.packets.Proxy;
 import de.codingair.packetmanagement.packets.RequestPacket;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -27,7 +29,7 @@ public class NameRequestPacket implements RequestPacket<NamePacketHandler, Strin
     }
 
     @Override
-    public NamePacketHandler getHandler() {
+    public @NotNull NamePacketHandler getHandler(Proxy proxy) {
         return new NamePacketHandler();
     }
 

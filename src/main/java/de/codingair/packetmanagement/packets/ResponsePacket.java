@@ -4,7 +4,7 @@ import org.jetbrains.annotations.NotNull;
 
 public interface ResponsePacket extends Packet<PacketHandler<?>>, AssignedPacket {
     @Override
-    default @NotNull PacketHandler<?> getHandler() {
+    default @NotNull PacketHandler<?> getHandler(Proxy proxy) {
         throw new UnsupportedOperationException("A ResponsePacket does not have a PacketHandler.");
     }
 }

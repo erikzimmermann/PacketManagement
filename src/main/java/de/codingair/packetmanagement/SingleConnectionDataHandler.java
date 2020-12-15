@@ -1,6 +1,7 @@
 package de.codingair.packetmanagement;
 
 import de.codingair.packetmanagement.packets.Packet;
+import de.codingair.packetmanagement.packets.Proxy;
 import de.codingair.packetmanagement.packets.RequestPacket;
 import de.codingair.packetmanagement.packets.ResponsePacket;
 import org.jetbrains.annotations.NotNull;
@@ -8,9 +9,9 @@ import org.jetbrains.annotations.NotNull;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
-public abstract class SingleConnectionDataHandler extends DataHandler<Object> {
-    public SingleConnectionDataHandler(String channelName) {
-        super(channelName);
+public abstract class SingleConnectionDataHandler<P extends Proxy> extends DataHandler<Object, P> {
+    public SingleConnectionDataHandler(String channelName, P proxy) {
+        super(channelName, proxy);
     }
 
     protected abstract void send(byte[] data);

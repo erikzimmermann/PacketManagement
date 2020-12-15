@@ -10,7 +10,14 @@ public interface ResponsiblePacketHandler<P extends RequestPacket<?, ?>, A exten
         throw new UnsupportedOperationException("Use response(Packet<?> packet) instead.");
     }
 
-    default boolean answer(P packet) {
+    /**
+     * Useful for multiple listeners and just one will answer to this packet.
+     *
+     * @param packet Processing packet (in)
+     * @param proxy Registered proxy
+     * @return true if this handler can response to this packet.
+     */
+    default boolean answer(P packet, Proxy proxy) {
         return true;
     }
 

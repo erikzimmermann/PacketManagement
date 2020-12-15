@@ -15,19 +15,21 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-public abstract class DataHandler<C> {
+public abstract class DataHandler<C, P extends Proxy> {
     private final HashBiMap<Class<? extends Packet<?>>, Integer> register = HashBiMap.create();
     private int id = 0;
 
     protected final String channelBackend, channelProxy;
     protected final ConcurrentHashMap<UUID, CompletableFuture<? extends ResponsePacket>> future = new ConcurrentHashMap<>();
     protected final ConcurrentHashMap<UUID, Long> timeSpecific = new ConcurrentHashMap<>();
+    protected final P proxy;
 
     protected final Timer timeOutTimer = new Timer("DataHandler-TimeOut");
     protected boolean running = false;
     protected long timeOut = 250L;
 
-    public DataHandler(String channelName) {
+    public DataHandler(String channelName, P proxy) {
+        this.proxy = proxy;
         channelBackend = channelName + ":backend";
         channelProxy = channelName + ":proxy";
 
@@ -125,10 +127,10 @@ public abstract class DataHandler<C> {
 
         if(packet instanceof RequestPacket) {
             RequestPacket<? extends ResponsiblePacketHandler<RequestPacket<?, ?>, ?>, ?> ap = (RequestPacket<? extends ResponsiblePacketHandler<RequestPacket<?, ?>, ?>, ?>) packet;
-            ResponsiblePacketHandler<RequestPacket<?, ?>, ?> handler = ap.getHandler();
+            ResponsiblePacketHandler<RequestPacket<?, ?>, ?> handler = ap.getHandler(proxy);
             if(handler == null) throw new NoHandlerException(ap.getClass());
 
-            if(handler.answer(ap)) handler.response(ap).thenAccept(response -> send(response, connection, id));
+            if(handler.answer(ap, proxy)) handler.response(ap).thenAccept(response -> send(response, connection, id));
         } else if(packet instanceof ResponsePacket) {
             if(id == null) throw new NullPointerException("No id given! Cannot handle packet: " + packet.getClass());
             A rp = (A) packet;
@@ -140,7 +142,7 @@ public abstract class DataHandler<C> {
             cf.complete(rp);
         } else {
             Packet<? extends PacketHandler<Packet<?>>> singleton = (Packet<? extends PacketHandler<Packet<?>>>) packet;
-            PacketHandler<Packet<?>> handler = singleton.getHandler();
+            PacketHandler<Packet<?>> handler = singleton.getHandler(proxy);
             if(handler == null) throw new NoHandlerException(singleton.getClass());
 
             handler.process(packet);
@@ -180,7 +182,7 @@ public abstract class DataHandler<C> {
                 @Override
                 public void run() {
                     long time = System.currentTimeMillis();
-                    timeSpecific.entrySet().removeIf(e ->  {
+                    timeSpecific.entrySet().removeIf(e -> {
                         if(time >= e.getValue()) {
                             CompletableFuture<?> cf = future.remove(e.getKey());
                             if(cf != null) cf.completeExceptionally(new TimeOutException("The requested packet took too long."));

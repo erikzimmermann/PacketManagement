@@ -11,6 +11,11 @@ public interface Packet<P extends PacketHandler<?>> {
 
     void read(DataInputStream in) throws IOException;
 
+    /**
+     *
+     * @param proxy The registered proxy server
+     * @return The corresponding packet handler for that proxy.
+     */
     @NotNull
-    P getHandler();
+    P getHandler(Proxy proxy);
 }

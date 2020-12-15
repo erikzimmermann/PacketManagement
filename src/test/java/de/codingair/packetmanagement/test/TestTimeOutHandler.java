@@ -4,9 +4,9 @@ import de.codingair.packetmanagement.SingleConnectionDataHandler;
 import de.codingair.packetmanagement.test.packets.NameRequestPacket;
 import de.codingair.packetmanagement.test.packets.StringPacket;
 
-public class TestTimeOutHandler extends SingleConnectionDataHandler {
+public class TestTimeOutHandler extends SingleConnectionDataHandler<TestProxy> {
     public TestTimeOutHandler() {
-        super("test");
+        super("test", new TestProxy());
         timeOut = 10;
     }
 
