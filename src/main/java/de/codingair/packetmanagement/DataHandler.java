@@ -20,12 +20,12 @@ public abstract class DataHandler<C, P extends Proxy> {
     private int id = 0;
 
     protected final String channelBackend, channelProxy;
-    protected final ConcurrentHashMap<UUID, CompletableFuture<? extends ResponsePacket>> future = new ConcurrentHashMap<>();
-    protected final ConcurrentHashMap<UUID, Long> timeSpecific = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, CompletableFuture<? extends ResponsePacket>> future = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, Long> timeSpecific = new ConcurrentHashMap<>();
     protected final P proxy;
 
-    protected final Timer timeOutTimer = new Timer("DataHandler-TimeOut");
-    protected boolean running = false;
+    private Timer timeOutTimer = new Timer("DataHandler-TimeOut");
+    private boolean running = false;
     protected long timeOut = 250L;
 
     public DataHandler(String channelName, P proxy) {
@@ -80,10 +80,11 @@ public abstract class DataHandler<C, P extends Proxy> {
     /**
      * Stops (if running) the active TimeOut-Timer and removes all references to timeOuts and completable futures.
      */
-    public void purge() {
+    public void flush() {
         if(this.running) {
             this.timeOutTimer.cancel();
             this.timeOutTimer.purge();
+            this.timeOutTimer = new Timer("DataHandler-TimeOut");
             running = false;
         }
 
