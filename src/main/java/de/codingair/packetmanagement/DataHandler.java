@@ -138,7 +138,10 @@ public abstract class DataHandler<C, P extends Proxy> {
 
             this.timeSpecific.remove(id);
             CompletableFuture<A> cf = (CompletableFuture<A>) this.future.remove(id);
-            if(cf == null) throw new NullPointerException("No CompletableFuture given! Cannot handle response packet: " + rp.getClass());
+            if(cf == null) {
+                //No CompletableFuture given! Must be a response to another handler!
+                return;
+            }
 
             cf.complete(rp);
         } else {
