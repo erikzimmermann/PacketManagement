@@ -9,8 +9,8 @@ import org.jetbrains.annotations.NotNull;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
-public abstract class SingleConnectionDataHandler<P extends Proxy> extends DataHandler<Object, P> {
-    public SingleConnectionDataHandler(String channelName, P proxy) {
+public abstract class SingleConnectionDataHandler extends DataHandler<Object> {
+    public SingleConnectionDataHandler(String channelName, Proxy proxy) {
         super(channelName, proxy);
     }
 

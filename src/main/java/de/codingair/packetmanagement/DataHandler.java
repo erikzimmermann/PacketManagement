@@ -15,20 +15,20 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-public abstract class DataHandler<C, P extends Proxy> {
+public abstract class DataHandler<C> {
     private final HashBiMap<Class<? extends Packet<?>>, Integer> register = HashBiMap.create();
     private int id = 0;
 
     protected final String channelBackend, channelProxy;
     private final ConcurrentHashMap<UUID, CompletableFuture<? extends ResponsePacket>> future = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, Long> timeSpecific = new ConcurrentHashMap<>();
-    protected final P proxy;
+    protected final Proxy proxy;
 
     private Timer timeOutTimer = new Timer("DataHandler-TimeOut");
     private boolean running = false;
     protected long timeOut = 250L;
 
-    public DataHandler(String channelName, P proxy) {
+    public DataHandler(String channelName, Proxy proxy) {
         this.proxy = proxy;
         channelBackend = channelName + ":backend";
         channelProxy = channelName + ":proxy";
@@ -206,5 +206,9 @@ public abstract class DataHandler<C, P extends Proxy> {
 
     public String getChannelBackend() {
         return channelBackend;
+    }
+
+    public <P extends Proxy> P getProxy() {
+        return (P) proxy;
     }
 }

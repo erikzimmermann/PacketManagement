@@ -4,7 +4,7 @@ import de.codingair.packetmanagement.SingleConnectionDataHandler;
 import de.codingair.packetmanagement.test.packets.NameRequestPacket;
 import de.codingair.packetmanagement.test.packets.StringPacket;
 
-public class TestTimeOutHandler extends SingleConnectionDataHandler<TestProxy> {
+public class TestTimeOutHandler extends SingleConnectionDataHandler {
     public TestTimeOutHandler() {
         super("test", new TestProxy());
         timeOut = 10;
@@ -12,7 +12,7 @@ public class TestTimeOutHandler extends SingleConnectionDataHandler<TestProxy> {
 
     @Override
     protected void send(byte[] data) {
-        //ignore triggering timeout
+        //ignore -> triggering timeout
     }
 
     @Override

@@ -6,7 +6,7 @@ import de.codingair.packetmanagement.test.packets.StringPacket;
 
 import java.io.IOException;
 
-public class TestDataHandler extends SingleConnectionDataHandler<TestProxy> {
+public class TestDataHandler extends SingleConnectionDataHandler {
     public TestDataHandler() {
         super("test", new TestProxy());
     }
