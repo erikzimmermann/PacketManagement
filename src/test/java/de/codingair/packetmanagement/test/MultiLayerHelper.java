@@ -1,17 +1,22 @@
 package de.codingair.packetmanagement.test;
 
+import de.codingair.packetmanagement.variants.OneWaySingleConnectionDataHandler;
+import de.codingair.packetmanagement.variants.SingleConnectionDataHandler;
 import de.codingair.packetmanagement.test.packets.MultiLayerNameRequestPacket;
 import de.codingair.packetmanagement.test.packets.NameRequestPacket;
 import de.codingair.packetmanagement.test.packets.SimplePacket;
-import de.codingair.packetmanagement.test.proxies.TestProxy;
 import de.codingair.packetmanagement.utils.Direction;
-import de.codingair.packetmanagement.variants.OneWaySingleConnectionDataHandler;
+import de.codingair.packetmanagement.utils.Proxy;
 
 import java.io.IOException;
 
-public class TestDataHandler extends OneWaySingleConnectionDataHandler {
-    public TestDataHandler() {
-        super("test", new TestProxy());
+public class MultiLayerHelper extends OneWaySingleConnectionDataHandler {
+    private final Direction instance;
+    public SingleConnectionDataHandler other;
+
+    public MultiLayerHelper(Direction instance, Proxy proxy) {
+        super("test", proxy);
+        this.instance = instance;
     }
 
     @Override
@@ -24,14 +29,9 @@ public class TestDataHandler extends OneWaySingleConnectionDataHandler {
     @Override
     protected void send(byte[] data) {
         try {
-            receive(data);
+            other.receive(data, instance);
         } catch(IOException | InstantiationException | IllegalAccessException e) {
             e.printStackTrace();
         }
-    }
-
-    @Override
-    protected boolean isConnected(Direction direction) {
-        return true;
     }
 }

@@ -1,6 +1,8 @@
-package de.codingair.packetmanagement.test.packets;
+package de.codingair.packetmanagement.test.handlers;
 
-import de.codingair.packetmanagement.packets.ResponsiblePacketHandler;
+import de.codingair.packetmanagement.handlers.ResponsiblePacketHandler;
+import de.codingair.packetmanagement.test.packets.NameRequestPacket;
+import de.codingair.packetmanagement.packets.impl.StringPacket;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.CompletableFuture;

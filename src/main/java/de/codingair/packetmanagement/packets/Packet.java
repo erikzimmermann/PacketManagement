@@ -1,5 +1,7 @@
 package de.codingair.packetmanagement.packets;
 
+import de.codingair.packetmanagement.handlers.PacketHandler;
+import de.codingair.packetmanagement.utils.Proxy;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.DataInputStream;

@@ -6,10 +6,13 @@ import de.codingair.packetmanagement.test.packets.SimplePacket;
 import de.codingair.packetmanagement.test.proxies.TestProxy;
 import de.codingair.packetmanagement.variants.OneWaySingleConnectionDataHandler;
 
-public class TestTimeOutHandler extends OneWaySingleConnectionDataHandler {
-    public TestTimeOutHandler() {
+import java.io.IOException;
+
+public class OneWayDataHandler extends OneWaySingleConnectionDataHandler {
+    public OneWaySingleConnectionDataHandler other;
+
+    public OneWayDataHandler() {
         super("test", new TestProxy());
-        timeOut = 10;
     }
 
     @Override
@@ -21,6 +24,10 @@ public class TestTimeOutHandler extends OneWaySingleConnectionDataHandler {
 
     @Override
     protected void send(byte[] data) {
-        //ignore -> triggering timeout
+        try {
+            other.receive(data);
+        } catch(IOException | InstantiationException | IllegalAccessException e) {
+            e.printStackTrace();
+        }
     }
 }

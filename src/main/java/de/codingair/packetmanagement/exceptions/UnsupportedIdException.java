@@ -1,4 +1,4 @@
-package de.codingair.packetmanagement.packets.exceptions;
+package de.codingair.packetmanagement.exceptions;
 
 public class UnsupportedIdException extends PacketException {
     public UnsupportedIdException(String message) {

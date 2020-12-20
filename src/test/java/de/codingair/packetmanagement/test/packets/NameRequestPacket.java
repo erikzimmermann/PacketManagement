@@ -1,6 +1,8 @@
 package de.codingair.packetmanagement.test.packets;
 
-import de.codingair.packetmanagement.packets.Proxy;
+import de.codingair.packetmanagement.packets.impl.StringPacket;
+import de.codingair.packetmanagement.test.handlers.NamePacketHandler;
+import de.codingair.packetmanagement.utils.Proxy;
 import de.codingair.packetmanagement.packets.RequestPacket;
 import org.jetbrains.annotations.NotNull;
 

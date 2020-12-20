@@ -1,4 +1,4 @@
-package de.codingair.packetmanagement.test.packets;
+package de.codingair.packetmanagement.packets.impl;
 
 import de.codingair.packetmanagement.packets.ResponsePacket;
 
@@ -6,27 +6,27 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-public class StringPacket implements ResponsePacket {
-    private String name;
+public class IntegerPacket implements ResponsePacket {
+    private int a;
 
-    public StringPacket() {
+    public IntegerPacket() {
     }
 
-    public StringPacket(String name) {
-        this.name = name;
+    public IntegerPacket(int a) {
+        this.a = a;
     }
 
     @Override
     public void write(DataOutputStream out) throws IOException {
-        out.writeUTF(this.name);
+        out.writeInt(this.a);
     }
 
     @Override
     public void read(DataInputStream in) throws IOException {
-        this.name = in.readUTF();
+        this.a = in.readInt();
     }
 
-    public String name() {
-        return name;
+    public int a() {
+        return a;
     }
 }
