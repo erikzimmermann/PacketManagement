@@ -54,6 +54,7 @@ public abstract class DataHandler<C> {
         registerPacket(StringPacket.class);
         registerPacket(IntegerPacket.class);
         registerPacket(BytePacket.class);
+        registerPacket(BooleanPacket.class);
     }
 
     protected abstract void registering();
@@ -67,7 +68,7 @@ public abstract class DataHandler<C> {
         register.put(sending, id++);
     }
 
-    public <PC extends Packet, P extends Class<? extends PC>> void registerPacket(P receiving, Class<? extends PacketHandler<PC>> handler) {
+    public <P extends Packet, PC extends Class<? extends P>> void registerPacket(PC receiving, Class<? extends PacketHandler<P>> handler) {
         if(id == -1) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
         if(register.containsValue(receiving)) throw new IllegalStateException("Packet already registered!");
 
@@ -212,7 +213,7 @@ public abstract class DataHandler<C> {
                 } else handler.process(packet, proxy);
             }
         } catch(IOException e) {
-            throw new MalformedPacketException("Cannot handle bytes to form a packet!", e);
+            throw new MalformedPacketException("Cannot handle bytes to form packet!", e);
         } catch(IllegalAccessException | InstantiationException e) {
             throw new PacketException("Cannot create packet instance!", e);
         }

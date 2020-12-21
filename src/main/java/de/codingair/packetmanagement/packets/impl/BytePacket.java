@@ -8,14 +8,10 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 public class BytePacket implements ResponsePacket {
-    private final ByteMask mask;
+    protected final ByteMask mask;
 
     public BytePacket() {
         this.mask = new ByteMask();
-    }
-
-    public BytePacket(boolean a) {
-        this.mask = new ByteMask((byte) (a ? 1 : 0));
     }
 
     public BytePacket(byte a) {
@@ -42,9 +38,5 @@ public class BytePacket implements ResponsePacket {
 
     public byte getByte() {
         return this.mask.getByte();
-    }
-
-    public boolean getBoolean() {
-        return this.mask.getBit(0);
     }
 }

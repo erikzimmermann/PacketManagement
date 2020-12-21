@@ -19,6 +19,7 @@ public abstract class SingleConnectionDataHandler extends DataHandler<Object> {
     protected abstract void send(byte[] data, Direction direction);
 
     @Override
+    @Deprecated
     protected void send(byte[] data, Object connection, Direction direction) {
         send(data, direction);
     }
@@ -39,7 +40,7 @@ public abstract class SingleConnectionDataHandler extends DataHandler<Object> {
 
     @Override
     @Deprecated
-    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<A> packet, @Nullable Object connection, Direction direction) {
+    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<A> packet, @Nullable Object connection, @NotNull Direction direction) {
         return super.send(packet, connection, direction);
     }
 
@@ -49,7 +50,7 @@ public abstract class SingleConnectionDataHandler extends DataHandler<Object> {
 
     @Override
     @Deprecated
-    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<A> packet, @Nullable Object connection, Direction direction, long timeOut) {
+    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<A> packet, @Nullable Object connection, @NotNull Direction direction, long timeOut) {
         return super.send(packet, connection, direction, timeOut);
     }
 

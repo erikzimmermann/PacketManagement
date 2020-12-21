@@ -17,6 +17,7 @@ public abstract class OneWayDataHandler<C> extends DataHandler<C> {
     }
 
     @Override
+    @Deprecated
     protected boolean isConnected(Direction direction) {
         return true;
     }

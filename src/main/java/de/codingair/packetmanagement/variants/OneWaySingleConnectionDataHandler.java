@@ -17,6 +17,7 @@ public abstract class OneWaySingleConnectionDataHandler extends DataHandler<Obje
     }
 
     @Override
+    @Deprecated
     protected boolean isConnected(Direction direction) {
         return true;
     }
