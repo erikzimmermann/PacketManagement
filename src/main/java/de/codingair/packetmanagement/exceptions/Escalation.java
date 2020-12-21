@@ -8,18 +8,17 @@ import de.codingair.packetmanagement.utils.Direction;
 import de.codingair.packetmanagement.packets.Packet;
 import org.jetbrains.annotations.NotNull;
 
-import javax.xml.ws.Response;
 import java.util.concurrent.CompletableFuture;
 
 public class Escalation extends PacketException {
     private final PacketHandler<?> handler;
     private final Direction direction;
-    private final Packet<?> forward;
+    private final Packet forward;
     private final ResponsePacket exceptional;
     private final CompletableFuture<? extends ResponsePacket> future;
     private final long timeOut;
 
-    public Escalation(@NotNull PacketHandler<?> handler, @NotNull Direction direction, @NotNull Packet<?> forward) {
+    public Escalation(@NotNull PacketHandler<?> handler, @NotNull Direction direction, @NotNull Packet forward) {
         this.handler = handler;
         this.direction = direction;
         this.forward = forward;
@@ -28,11 +27,11 @@ public class Escalation extends PacketException {
         this.future = null;
     }
 
-    public <A extends ResponsePacket> Escalation(@NotNull ResponsiblePacketHandler<?, ?> handler, @NotNull Direction direction, @NotNull RequestPacket<?, A> forward, A exceptional) {
+    public <A extends ResponsePacket> Escalation(@NotNull ResponsiblePacketHandler<?, ?> handler, @NotNull Direction direction, @NotNull RequestPacket<A> forward, A exceptional) {
         this(handler, direction, -1, forward, exceptional);
     }
 
-    public <A extends ResponsePacket> Escalation(@NotNull ResponsiblePacketHandler<?, ?> handler, @NotNull Direction direction, long timeOut, @NotNull RequestPacket<?, A> forward, A exceptional) {
+    public <A extends ResponsePacket> Escalation(@NotNull ResponsiblePacketHandler<?, ?> handler, @NotNull Direction direction, long timeOut, @NotNull RequestPacket<A> forward, A exceptional) {
         this.handler = handler;
         this.direction = direction;
         this.forward = forward;
@@ -49,7 +48,7 @@ public class Escalation extends PacketException {
         return direction;
     }
 
-    public Packet<?> packet() {
+    public Packet packet() {
         return forward;
     }
 

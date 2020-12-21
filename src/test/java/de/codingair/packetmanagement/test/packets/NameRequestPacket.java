@@ -1,16 +1,13 @@
 package de.codingair.packetmanagement.test.packets;
 
-import de.codingair.packetmanagement.packets.impl.StringPacket;
-import de.codingair.packetmanagement.test.handlers.NamePacketHandler;
-import de.codingair.packetmanagement.utils.Proxy;
 import de.codingair.packetmanagement.packets.RequestPacket;
-import org.jetbrains.annotations.NotNull;
+import de.codingair.packetmanagement.packets.impl.StringPacket;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-public class NameRequestPacket implements RequestPacket<NamePacketHandler, StringPacket> {
+public class NameRequestPacket implements RequestPacket<StringPacket> {
     private int id;
 
     public NameRequestPacket() {
@@ -28,11 +25,6 @@ public class NameRequestPacket implements RequestPacket<NamePacketHandler, Strin
     @Override
     public void read(DataInputStream in) throws IOException {
         this.id = in.readInt();
-    }
-
-    @Override
-    public @NotNull NamePacketHandler getHandler(Proxy proxy) {
-        return new NamePacketHandler();
     }
 
     public int id() {

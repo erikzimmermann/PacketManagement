@@ -3,11 +3,12 @@ package de.codingair.packetmanagement.handlers;
 import de.codingair.packetmanagement.exceptions.Escalation;
 import de.codingair.packetmanagement.packets.RequestPacket;
 import de.codingair.packetmanagement.packets.ResponsePacket;
+import de.codingair.packetmanagement.utils.Proxy;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.CompletableFuture;
 
-public interface ResponsibleMultiLayerPacketHandler<P extends RequestPacket<?, ?>, A extends ResponsePacket> extends ResponsiblePacketHandler<P, A> {
+public interface ResponsibleMultiLayerPacketHandler<P extends RequestPacket<?>, A extends ResponsePacket> extends ResponsiblePacketHandler<P, A> {
     @NotNull
-    CompletableFuture<A> response(P packet) throws Escalation;
+    CompletableFuture<A> response(P packet, Proxy proxy) throws Escalation;
 }

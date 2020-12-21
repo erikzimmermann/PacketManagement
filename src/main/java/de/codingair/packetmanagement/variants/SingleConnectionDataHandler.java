@@ -9,7 +9,6 @@ import de.codingair.packetmanagement.utils.Proxy;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 public abstract class SingleConnectionDataHandler extends DataHandler<Object> {
@@ -24,43 +23,43 @@ public abstract class SingleConnectionDataHandler extends DataHandler<Object> {
         send(data, direction);
     }
 
-    public void send(@NotNull Packet<?> packet, @NotNull Direction direction) {
+    public void send(@NotNull Packet packet, @NotNull Direction direction) {
         super.send(packet, null, direction);
     }
 
     @Override
     @Deprecated
-    public void send(@NotNull Packet<?> packet, @Nullable Object connection, @NotNull Direction direction) {
+    public void send(@NotNull Packet packet, @Nullable Object connection, @NotNull Direction direction) {
         super.send(packet, connection, direction);
     }
 
-    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<?, A> packet, @NotNull Direction direction) {
+    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<A> packet, @NotNull Direction direction) {
         return send(packet, direction, 0);
     }
 
     @Override
     @Deprecated
-    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<?, A> packet, @Nullable Object connection, Direction direction) {
+    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<A> packet, @Nullable Object connection, Direction direction) {
         return super.send(packet, connection, direction);
     }
 
-    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<?, A> packet, @NotNull Direction direction, long timeOut) {
+    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<A> packet, @NotNull Direction direction, long timeOut) {
         return super.send(packet, null, direction, timeOut);
     }
 
     @Override
     @Deprecated
-    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<?, A> packet, @Nullable Object connection, Direction direction, long timeOut) {
+    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<A> packet, @Nullable Object connection, Direction direction, long timeOut) {
         return super.send(packet, connection, direction, timeOut);
     }
 
-    public void receive(@NotNull byte[] bytes, @NotNull Direction direction) throws IOException, InstantiationException, IllegalAccessException {
+    public void receive(@NotNull byte[] bytes, @NotNull Direction direction) {
         super.receive(bytes, null, direction);
     }
 
     @Override
     @Deprecated
-    public void receive(@NotNull byte[] bytes, @Nullable Object connection, @NotNull Direction direction) throws IOException, InstantiationException, IllegalAccessException {
+    public void receive(@NotNull byte[] bytes, @Nullable Object connection, @NotNull Direction direction) {
         super.receive(bytes, connection, direction);
     }
 }

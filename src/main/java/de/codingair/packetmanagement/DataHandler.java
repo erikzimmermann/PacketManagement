@@ -17,15 +17,13 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
-import java.util.Optional;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class DataHandler<C> {
-    private final HashBiMap<Class<? extends Packet<?>>, Integer> register = HashBiMap.create();
+    private final HashBiMap<Class<? extends Packet>, Integer> register = HashBiMap.create();
+    private final HashMap<Class<? extends Packet>, Class<? extends PacketHandler<?>>> handlers = new HashMap<>();
     private int id = 0;
 
     protected final String channelBackend, channelProxy;
@@ -62,9 +60,19 @@ public abstract class DataHandler<C> {
 
     protected abstract boolean isConnected(Direction direction);
 
-    public void registerPacket(Class<? extends Packet<?>> c) {
+    public void registerPacket(Class<? extends Packet> sending) {
         if(id == -1) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
-        register.putIfAbsent(c, id++);
+        if(register.containsValue(sending)) throw new IllegalStateException("Packet already registered!");
+
+        register.put(sending, id++);
+    }
+
+    public <PC extends Packet, P extends Class<? extends PC>> void registerPacket(P receiving, Class<? extends PacketHandler<PC>> handler) {
+        if(id == -1) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
+        if(register.containsValue(receiving)) throw new IllegalStateException("Packet already registered!");
+
+        register.put(receiving, id++);
+        handlers.put(receiving, handler);
     }
 
     /**
@@ -74,19 +82,19 @@ public abstract class DataHandler<C> {
      */
     protected abstract void send(byte[] data, C connection, Direction direction);
 
-    public void send(@NotNull Packet<?> packet, @Nullable C connection, @NotNull Direction direction) {
+    public void send(@NotNull Packet packet, @Nullable C connection, @NotNull Direction direction) {
         send(packet, connection, direction, null);
     }
 
-    void send(@NotNull Packet<?> packet, @Nullable C connection, @NotNull Direction direction, @Nullable UUID id) {
+    void send(@NotNull Packet packet, @Nullable C connection, @NotNull Direction direction, @Nullable UUID id) {
         processPacket(packet, id).ifPresent(data -> send(data, connection, direction));
     }
 
-    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<?, A> packet, @Nullable C connection, @NotNull Direction direction) {
+    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<A> packet, @Nullable C connection, @NotNull Direction direction) {
         return send(packet, connection, direction, 0);
     }
 
-    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<?, A> packet, @Nullable C connection, @NotNull Direction direction, long timeOut) {
+    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<A> packet, @Nullable C connection, @NotNull Direction direction, long timeOut) {
         CompletableFuture<A> future = packet.buildFuture();
         processPacket(packet, registerFuture(timeOut, future)).ifPresent(data -> send(data, connection, direction));
         return future;
@@ -115,22 +123,34 @@ public abstract class DataHandler<C> {
         return id;
     }
 
-    private int getId(Class<?> c) {
-        Integer id = register.get(c);
-        if(id != null) return id;
-        else return -1;
-    }
+    @NotNull <P extends Packet, H extends PacketHandler<P>> H formHandler(P packet) throws NoHandlerException {
+        Class<? extends PacketHandler<?>> handlerClass = handlers.get(packet.getClass());
+        if(handlerClass == null) throw new NoHandlerException(packet.getClass());
 
-    private Class<? extends Packet<?>> byId(int id) {
-        if(id < 0) return null;
-        return register.inverse().get(id);
+        PacketHandler<?> handler;
+        try {
+            handler = handlerClass.newInstance();
+        } catch(InstantiationException | IllegalAccessException e) {
+            throw new HandlerException("Cannot create handler instance for packet " + packet.getClass() + "!", e);
+        }
+
+        try {
+            return (H) handler;
+        } catch(ClassCastException e) {
+            throw new HandlerException("PacketHandler " + handler + " cannot be used for packet " + packet.getClass() + "!", e);
+        }
     }
 
     @NotNull <T> T formPacket(int id) throws UnknownPacketException, IllegalAccessException, InstantiationException {
-        Class<?> c = byId(id);
-
+        if(id < 0) throw new UnknownPacketException("The packet id " + id + " is not associated with a packet class!");
+        Class<?> c = register.inverse().get(id);
         if(c == null) throw new UnknownPacketException("The packet id " + id + " is not associated with a packet class!");
-        return (T) c.newInstance();
+        
+        try {
+            return (T) c.newInstance();
+        } catch(ClassCastException e) {
+            throw new PacketException("Cannot cast packet to specified object.", e);
+        }
     }
 
     /**
@@ -138,60 +158,63 @@ public abstract class DataHandler<C> {
      * @param connection Connection which maybe will be used to send the data.
      * @param direction  Direction where we get our data from.
      */
-    public <A extends ResponsePacket> void receive(@NotNull byte[] bytes, @Nullable C connection, @NotNull Direction direction) throws IOException, InstantiationException, IllegalAccessException {
-        DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes));
+    public <A extends ResponsePacket> void receive(@NotNull byte[] bytes, @Nullable C connection, @NotNull Direction direction) {
+        try {
+            DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes));
 
-        Packet<?> packet = formPacket(in.readUnsignedShort());
-        UUID id = packet instanceof AssignedPacket ? new UUID(in.readLong(), in.readLong()) : null;
-        packet.read(in);
+            Packet packet = formPacket(in.readUnsignedShort());
+            UUID id = packet instanceof AssignedPacket ? new UUID(in.readLong(), in.readLong()) : null;
+            packet.read(in);
 
-        if(packet instanceof ResponsePacket) receiveResponse((A) packet, id);
-        else if(packet instanceof RequestPacket) {
-            RequestPacket<? extends ResponsiblePacketHandler<RequestPacket<?, ?>, ?>, ?> ap = (RequestPacket<? extends ResponsiblePacketHandler<RequestPacket<?, ?>, ?>, ?>) packet;
-            ResponsiblePacketHandler<RequestPacket<?, ?>, ?> handler = ap.getHandler(proxy);
-            if(handler == null) throw new NoHandlerException(ap.getClass());
+            if(packet instanceof ResponsePacket) receiveResponse((A) packet, id);
+            else if(packet instanceof RequestPacket) {
+                RequestPacket<A> ap = (RequestPacket<A>) packet;
+                ResponsiblePacketHandler<RequestPacket<A>, A> handler = formHandler(ap);
 
-            if(handler instanceof ResponsibleMultiLayerPacketHandler) {
-                ResponsibleMultiLayerPacketHandler<RequestPacket<?, ?>, ?> multi = (ResponsibleMultiLayerPacketHandler<RequestPacket<?, ?>, ?>) handler;
-                if(multi.answer(ap, proxy)) {
-                    try {
-                        multi.response(ap).thenAccept(response -> send(response, connection, direction.inverse(), id));
-                    } catch(Escalation e) {
-                        Packet<?> escalation = e.packet();
+                if(handler instanceof ResponsibleMultiLayerPacketHandler) {
+                    ResponsibleMultiLayerPacketHandler<RequestPacket<A>, A> multi = (ResponsibleMultiLayerPacketHandler<RequestPacket<A>, A>) handler;
+                    if(multi.answer(ap, proxy)) {
+                        try {
+                            multi.response(ap, proxy).thenAccept(response -> send(response, connection, direction.inverse(), id));
+                        } catch(Escalation e) {
+                            Packet escalation = e.packet();
 
-                        if(escalation instanceof RequestPacket) {
-                            //Register response to origin
-                            e.future().whenComplete((response, err) -> {
-                                if(err != null) send(e.exceptional(), connection, direction, id);
-                                else send(response, connection, direction, id);
-                            });
+                            if(escalation instanceof RequestPacket) {
+                                //Register response to origin
+                                e.future().whenComplete((response, err) -> {
+                                    if(err != null) send(e.exceptional(), connection, direction, id);
+                                    else send(response, connection, direction, id);
+                                });
 
-                            if(!isConnected(e.direction())) {
-                                e.future().completeExceptionally(new NoConnectionException("No " + e.direction().name() + " connection established!"));
+                                if(!isConnected(e.direction())) {
+                                    e.future().completeExceptionally(new NoConnectionException("No " + e.direction().name() + " connection established!"));
+                                } else {
+                                    //Perform escalation
+                                    processPacket(e.packet(), registerFuture(e.timeOut(timeOut), e.future())).ifPresent(escalableData -> send(escalableData, connection, e.direction()));
+                                }
                             } else {
-                                //Perform escalation
-                                processPacket(e.packet(), registerFuture(e.timeOut(timeOut), e.future())).ifPresent(escalableData -> send(escalableData, connection, e.direction()));
+                                //Perform simple escalation
+                                processPacket(e.packet(), null).ifPresent(escalableData -> send(escalableData, connection, e.direction()));
                             }
-                        } else {
-                            //Perform simple escalation
-                            processPacket(e.packet(), null).ifPresent(escalableData -> send(escalableData, connection, e.direction()));
                         }
                     }
-                }
-            } else if(handler.answer(ap, proxy)) handler.response(ap).thenAccept(response -> send(response, connection, direction, id));
-        } else {
-            Packet<? extends PacketHandler<Packet<?>>> singleton = (Packet<? extends PacketHandler<Packet<?>>>) packet;
-            PacketHandler<Packet<?>> handler = singleton.getHandler(proxy);
-            if(handler == null) throw new NoHandlerException(singleton.getClass());
+                } else if(handler.answer(ap, proxy)) handler.response(ap, proxy).thenAccept(response -> send(response, connection, direction, id));
+            } else {
+                PacketHandler<Packet> handler = formHandler(packet);
 
-            if(handler instanceof MultiLayerPacketHandler) {
-                MultiLayerPacketHandler<Packet<?>> multi = (MultiLayerPacketHandler<Packet<?>>) handler;
-                try {
-                    multi.process(packet);
-                } catch(Escalation e) {
-                    send(e.packet(), connection, e.direction());
-                }
-            } else handler.process(packet);
+                if(handler instanceof MultiLayerPacketHandler) {
+                    MultiLayerPacketHandler<Packet> multi = (MultiLayerPacketHandler<Packet>) handler;
+                    try {
+                        multi.process(packet, proxy);
+                    } catch(Escalation e) {
+                        send(e.packet(), connection, e.direction());
+                    }
+                } else handler.process(packet, proxy);
+            }
+        } catch(IOException e) {
+            throw new MalformedPacketException("Cannot handle bytes to form a packet!", e);
+        } catch(IllegalAccessException | InstantiationException e) {
+            throw new PacketException("Cannot create packet instance!", e);
         }
     }
 
@@ -223,15 +246,15 @@ public abstract class DataHandler<C> {
         return id;
     }
 
-    Optional<byte[]> processPacket(@NotNull Packet<?> packet, @Nullable UUID uuid) {
+    Optional<byte[]> processPacket(@NotNull Packet packet, @Nullable UUID uuid) {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(stream);
 
-        int packetId = getId(packet.getClass());
-        if(packetId == -1) throw new UnknownPacketException(packet.getClass() + " is not registered!");
+        Integer id = register.get(packet.getClass());
+        if(id == null) throw new UnknownPacketException(packet.getClass() + " is not registered!");
 
         try {
-            out.writeShort(packetId);
+            out.writeShort(id);
 
             if(packet instanceof AssignedPacket) {
                 if(uuid == null) throw new NullPointerException("Cannot send assigned packet without UUID: " + packet.getClass());

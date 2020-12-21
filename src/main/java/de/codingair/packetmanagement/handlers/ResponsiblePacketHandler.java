@@ -7,10 +7,10 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.CompletableFuture;
 
-public interface ResponsiblePacketHandler<P extends RequestPacket<?, ?>, A extends ResponsePacket> extends PacketHandler<P> {
+public interface ResponsiblePacketHandler<P extends RequestPacket<?>, A extends ResponsePacket> extends PacketHandler<P> {
     @Override
     @Deprecated
-    default void process(P packet) {
+    default void process(P packet, Proxy proxy) {
         throw new UnsupportedOperationException("Use response(Packet<?> packet) instead.");
     }
 
@@ -26,5 +26,5 @@ public interface ResponsiblePacketHandler<P extends RequestPacket<?, ?>, A exten
     }
 
     @NotNull
-    CompletableFuture<A> response(P packet);
+    CompletableFuture<A> response(P packet, Proxy proxy);
 }
