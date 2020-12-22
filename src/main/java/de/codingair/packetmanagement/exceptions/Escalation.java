@@ -11,6 +11,9 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * An escalation will be used while processing packets which must be done on a higher level.
+ */
 public class Escalation extends PacketException {
     private final PacketHandler<?> handler;
     private final Direction direction;
@@ -18,7 +21,6 @@ public class Escalation extends PacketException {
     private final PacketSupplier<? extends ResponsePacket> exceptional;
     private final CompletableFuture<? extends ResponsePacket> future;
     private final long timeOut;
-
 
     /**
      * @param handler     The handler that throws this escalation.
@@ -41,7 +43,7 @@ public class Escalation extends PacketException {
      * @param exceptional The PacketSupplier that will probably be executed by a TimeOutException or a NoConnectionException.
      * @param <A>         The ResponsePacket which will be sent to the origin DataHandler that starts this conversation.
      */
-    public <A extends ResponsePacket> Escalation(@NotNull ResponsiblePacketHandler<?, ?> handler, @NotNull Direction direction, @NotNull RequestPacket<A> forward, @NotNull PacketSupplier<A> exceptional) {
+    public <A extends ResponsePacket> Escalation(@NotNull ResponsiblePacketHandler<?, A> handler, @NotNull Direction direction, @NotNull RequestPacket<A> forward, @NotNull PacketSupplier<A> exceptional) {
         this(handler, direction, -1, forward, exceptional);
     }
 
@@ -53,7 +55,7 @@ public class Escalation extends PacketException {
      * @param exceptional The PacketSupplier that will probably be executed by a TimeOutException or a NoConnectionException.
      * @param <A>         The ResponsePacket which will be sent to the origin DataHandler that starts this conversation.
      */
-    public <A extends ResponsePacket> Escalation(@NotNull ResponsiblePacketHandler<?, ?> handler, @NotNull Direction direction, long timeOut, @NotNull RequestPacket<A> forward, @NotNull PacketSupplier<A> exceptional) {
+    public <A extends ResponsePacket> Escalation(@NotNull ResponsiblePacketHandler<?, A> handler, @NotNull Direction direction, long timeOut, @NotNull RequestPacket<A> forward, @NotNull PacketSupplier<A> exceptional) {
         this.handler = handler;
         this.direction = direction;
         this.forward = forward;
