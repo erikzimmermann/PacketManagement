@@ -17,9 +17,9 @@ public class TestTimeOutHandler extends OneWaySingleConnectionDataHandler {
 
     @Override
     protected void registering() {
-        registerPacket(SimplePacket.class, SimplePacketHandler.class);
-        registerPacket(NameRequestPacket.class, NamePacketHandler.class);
-        registerPacket(MultiLayerNameRequestPacket.class, RespondingNamePacketHandler.class);
+        registerPacket(SimplePacket.class, new SimplePacketHandler());
+        registerPacket(NameRequestPacket.class, new NamePacketHandler());
+        registerPacket(MultiLayerNameRequestPacket.class, new RespondingNamePacketHandler());
     }
 
     @Override
