@@ -61,14 +61,14 @@ public abstract class DataHandler<C> {
 
     protected abstract boolean isConnected(Direction direction);
 
-    public void registerPacket(Class<? extends Packet> sending) {
+    protected void registerPacket(@NotNull Class<? extends Packet> sending) {
         if(id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
         if(register.containsValue(sending)) throw new IllegalStateException("Packet already registered!");
 
         register.put(sending, id++);
     }
 
-    public <P extends Packet> void registerPacket(Class<? extends P> receiving, PacketHandler<P> handler) {
+    protected <P extends Packet> void registerPacket(@NotNull Class<? extends P> receiving, @NotNull PacketHandler<P> handler) {
         if(id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
         if(register.containsValue(receiving)) throw new IllegalStateException("Packet already registered!");
 
@@ -76,14 +76,18 @@ public abstract class DataHandler<C> {
         handlers.put(receiving, handler);
     }
 
-    public boolean registerPacket(short id, Class<? extends Packet> sending) {
+    public <P extends Packet> boolean registerHandler(@NotNull Class<? extends P> receiving, @NotNull PacketHandler<P> handler) {
+        return handlers.putIfAbsent(receiving, handler) == null;
+    }
+
+    public boolean registerPacket(short id, @NotNull Class<? extends Packet> sending) {
         if(this.id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
         if(register.containsValue(sending)) throw new IllegalStateException("Packet already registered!");
 
         return register.putIfAbsent(sending, id) == null;
     }
 
-    public <P extends Packet> boolean registerPacket(short id, Class<? extends P> receiving, PacketHandler<P> handler) {
+    public <P extends Packet> boolean registerPacket(short id, @NotNull Class<? extends P> receiving, @NotNull PacketHandler<P> handler) {
         if(this.id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
         if(register.containsValue(receiving)) throw new IllegalStateException("Packet already registered!");
 
@@ -154,7 +158,7 @@ public abstract class DataHandler<C> {
     @NotNull <T> T formPacket(short id) throws UnknownPacketException, IllegalAccessException, InstantiationException {
         Class<?> c = register.inverse().get(id);
         if(c == null) throw new UnknownPacketException("The packet id " + id + " is not associated with a packet class!");
-        
+
         try {
             return (T) c.newInstance();
         } catch(ClassCastException e) {
@@ -184,7 +188,7 @@ public abstract class DataHandler<C> {
                     ResponsibleMultiLayerPacketHandler<RequestPacket<A>, A> multi = (ResponsibleMultiLayerPacketHandler<RequestPacket<A>, A>) handler;
                     if(multi.answer(ap, proxy)) {
                         try {
-                            multi.response(ap, proxy).thenAccept(response -> send(response, connection, direction.inverse(), id));
+                            multi.response(ap, proxy, connection).thenAccept(response -> send(response, connection, direction.inverse(), id));
                         } catch(Escalation e) {
                             Packet escalation = e.packet();
 
@@ -207,18 +211,18 @@ public abstract class DataHandler<C> {
                             }
                         }
                     }
-                } else if(handler.answer(ap, proxy)) handler.response(ap, proxy).thenAccept(response -> send(response, connection, direction, id));
+                } else if(handler.answer(ap, proxy)) handler.response(ap, proxy, connection).thenAccept(response -> send(response, connection, direction, id));
             } else {
                 PacketHandler<Packet> handler = formHandler(packet);
 
                 if(handler instanceof MultiLayerPacketHandler) {
                     MultiLayerPacketHandler<Packet> multi = (MultiLayerPacketHandler<Packet>) handler;
                     try {
-                        multi.process(packet, proxy);
+                        multi.process(packet, proxy, connection);
                     } catch(Escalation e) {
                         send(e.packet(), connection, e.direction());
                     }
-                } else handler.process(packet, proxy);
+                } else handler.process(packet, proxy, connection);
             }
         } catch(IOException e) {
             throw new MalformedPacketException("Cannot handle bytes to form packet!", e);

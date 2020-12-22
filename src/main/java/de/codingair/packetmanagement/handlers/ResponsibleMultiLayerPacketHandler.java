@@ -5,10 +5,11 @@ import de.codingair.packetmanagement.packets.RequestPacket;
 import de.codingair.packetmanagement.packets.ResponsePacket;
 import de.codingair.packetmanagement.utils.Proxy;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.concurrent.CompletableFuture;
 
 public interface ResponsibleMultiLayerPacketHandler<P extends RequestPacket<?>, A extends ResponsePacket> extends ResponsiblePacketHandler<P, A> {
     @NotNull
-    CompletableFuture<A> response(P packet, Proxy proxy) throws Escalation;
+    CompletableFuture<A> response(@NotNull P packet, @NotNull Proxy proxy, @Nullable Object connection) throws Escalation;
 }
