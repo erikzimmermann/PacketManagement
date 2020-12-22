@@ -4,6 +4,7 @@ import de.codingair.packetmanagement.utils.ByteMask;
 
 public class BooleanPacket extends BytePacket {
     public BooleanPacket() {
+        super();
     }
 
     public BooleanPacket(boolean a) {

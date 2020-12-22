@@ -22,9 +22,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class DataHandler<C> {
-    private final HashBiMap<Class<? extends Packet>, Integer> register = HashBiMap.create();
+    private final HashBiMap<Class<? extends Packet>, Short> register = HashBiMap.create();
     private final HashMap<Class<? extends Packet>, PacketHandler<?>> handlers = new HashMap<>();
-    private int id = 0;
+    private Short id = 0;
 
     protected final String channelBackend, channelProxy;
     protected final ConcurrentHashMap<UUID, CompletableFuture<? extends ResponsePacket>> future = new ConcurrentHashMap<>();
@@ -45,12 +45,12 @@ public abstract class DataHandler<C> {
 
         //register custom packets
         registering();
-        id = -1;
+        id = null;
     }
 
     private void register() {
+        id = -6;
         registerPacket(SuccessPacket.class);
-        registerPacket(FailPacket.class);
         registerPacket(StringPacket.class);
         registerPacket(IntegerPacket.class);
         registerPacket(BytePacket.class);
@@ -62,18 +62,34 @@ public abstract class DataHandler<C> {
     protected abstract boolean isConnected(Direction direction);
 
     public void registerPacket(Class<? extends Packet> sending) {
-        if(id == -1) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
+        if(id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
         if(register.containsValue(sending)) throw new IllegalStateException("Packet already registered!");
 
         register.put(sending, id++);
     }
 
-    public <P extends Packet, PC extends Class<? extends P>> void registerPacket(PC receiving, PacketHandler<P> handler) {
-        if(id == -1) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
+    public <P extends Packet> void registerPacket(Class<? extends P> receiving, PacketHandler<P> handler) {
+        if(id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
         if(register.containsValue(receiving)) throw new IllegalStateException("Packet already registered!");
 
         register.put(receiving, id++);
         handlers.put(receiving, handler);
+    }
+
+    public boolean registerPacket(short id, Class<? extends Packet> sending) {
+        if(this.id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
+        if(register.containsValue(sending)) throw new IllegalStateException("Packet already registered!");
+
+        return register.putIfAbsent(sending, id) == null;
+    }
+
+    public <P extends Packet> boolean registerPacket(short id, Class<? extends P> receiving, PacketHandler<P> handler) {
+        if(this.id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
+        if(register.containsValue(receiving)) throw new IllegalStateException("Packet already registered!");
+
+        if(register.put(receiving, id) != null) return false;
+        handlers.put(receiving, handler);
+        return true;
     }
 
     /**
@@ -244,7 +260,7 @@ public abstract class DataHandler<C> {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(stream);
 
-        Integer id = register.get(packet.getClass());
+        Short id = register.get(packet.getClass());
         if(id == null) throw new UnknownPacketException(packet.getClass() + " is not registered!");
 
         try {
