@@ -23,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class DataHandler<C> {
     private final HashBiMap<Class<? extends Packet>, Integer> register = HashBiMap.create();
-    private final HashMap<Class<? extends Packet>, Class<? extends PacketHandler<?>>> handlers = new HashMap<>();
+    private final HashMap<Class<? extends Packet>, PacketHandler<?>> handlers = new HashMap<>();
     private int id = 0;
 
     protected final String channelBackend, channelProxy;
@@ -68,7 +68,7 @@ public abstract class DataHandler<C> {
         register.put(sending, id++);
     }
 
-    public <P extends Packet, PC extends Class<? extends P>> void registerPacket(PC receiving, Class<? extends PacketHandler<P>> handler) {
+    public <P extends Packet, PC extends Class<? extends P>> void registerPacket(PC receiving, PacketHandler<P> handler) {
         if(id == -1) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
         if(register.containsValue(receiving)) throw new IllegalStateException("Packet already registered!");
 
@@ -125,15 +125,8 @@ public abstract class DataHandler<C> {
     }
 
     @NotNull <P extends Packet, H extends PacketHandler<P>> H formHandler(P packet) throws NoHandlerException {
-        Class<? extends PacketHandler<?>> handlerClass = handlers.get(packet.getClass());
-        if(handlerClass == null) throw new NoHandlerException(packet.getClass());
-
-        PacketHandler<?> handler;
-        try {
-            handler = handlerClass.newInstance();
-        } catch(InstantiationException | IllegalAccessException e) {
-            throw new HandlerException("Cannot create handler instance for packet " + packet.getClass() + "!", e);
-        }
+        PacketHandler<?> handler = handlers.get(packet.getClass());
+        if(handler == null) throw new NoHandlerException(packet.getClass());
 
         try {
             return (H) handler;
