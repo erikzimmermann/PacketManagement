@@ -2,7 +2,6 @@ package de.codingair.packetmanagement.test;
 
 import de.codingair.packetmanagement.test.handlers.ForwardingNamePacketHandler;
 import de.codingair.packetmanagement.test.handlers.NamePacketHandler;
-import de.codingair.packetmanagement.test.handlers.RespondingNamePacketHandler;
 import de.codingair.packetmanagement.test.handlers.SimplePacketHandler;
 import de.codingair.packetmanagement.test.packets.MultiLayerNameRequestPacket;
 import de.codingair.packetmanagement.test.packets.NameRequestPacket;
@@ -35,6 +34,6 @@ public class TestMultiLayerDataHandler extends SingleConnectionDataHandler {
     protected void registering() {
         registerPacket(SimplePacket.class, new SimplePacketHandler());
         registerPacket(NameRequestPacket.class, new NamePacketHandler());
-        registerPacket(MultiLayerNameRequestPacket.class, new RespondingNamePacketHandler());
+        registerPacket(MultiLayerNameRequestPacket.class, new ForwardingNamePacketHandler());
     }
 }

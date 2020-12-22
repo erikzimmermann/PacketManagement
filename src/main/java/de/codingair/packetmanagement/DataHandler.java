@@ -49,7 +49,7 @@ public abstract class DataHandler<C> {
     }
 
     private void register() {
-        id = -6;
+        id = -5;
         registerPacket(SuccessPacket.class);
         registerPacket(StringPacket.class);
         registerPacket(IntegerPacket.class);
@@ -151,8 +151,7 @@ public abstract class DataHandler<C> {
         }
     }
 
-    @NotNull <T> T formPacket(int id) throws UnknownPacketException, IllegalAccessException, InstantiationException {
-        if(id < 0) throw new UnknownPacketException("The packet id " + id + " is not associated with a packet class!");
+    @NotNull <T> T formPacket(short id) throws UnknownPacketException, IllegalAccessException, InstantiationException {
         Class<?> c = register.inverse().get(id);
         if(c == null) throw new UnknownPacketException("The packet id " + id + " is not associated with a packet class!");
         
@@ -172,7 +171,7 @@ public abstract class DataHandler<C> {
         try {
             DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes));
 
-            Packet packet = formPacket(in.readUnsignedShort());
+            Packet packet = formPacket(in.readShort());
             UUID id = packet instanceof AssignedPacket ? new UUID(in.readLong(), in.readLong()) : null;
             packet.read(in);
 
@@ -192,7 +191,7 @@ public abstract class DataHandler<C> {
                             if(escalation instanceof RequestPacket) {
                                 //Register response to origin
                                 e.future().whenComplete((response, err) -> {
-                                    if(err != null) send(e.exceptional(), connection, direction, id);
+                                    if(err != null) send(e.exceptional(err), connection, direction, id);
                                     else send(response, connection, direction, id);
                                 });
 

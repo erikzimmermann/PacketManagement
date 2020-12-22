@@ -2,10 +2,11 @@ package de.codingair.packetmanagement.exceptions;
 
 import de.codingair.packetmanagement.handlers.PacketHandler;
 import de.codingair.packetmanagement.handlers.ResponsiblePacketHandler;
+import de.codingair.packetmanagement.packets.Packet;
 import de.codingair.packetmanagement.packets.RequestPacket;
 import de.codingair.packetmanagement.packets.ResponsePacket;
 import de.codingair.packetmanagement.utils.Direction;
-import de.codingair.packetmanagement.packets.Packet;
+import de.codingair.packetmanagement.utils.PacketSupplier;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.CompletableFuture;
@@ -14,10 +15,16 @@ public class Escalation extends PacketException {
     private final PacketHandler<?> handler;
     private final Direction direction;
     private final Packet forward;
-    private final ResponsePacket exceptional;
+    private final PacketSupplier<? extends ResponsePacket> exceptional;
     private final CompletableFuture<? extends ResponsePacket> future;
     private final long timeOut;
 
+
+    /**
+     * @param handler     The handler that throws this escalation.
+     * @param direction   The direction where we have to escalate to.
+     * @param forward     The packet which will be escalated.
+     */
     public Escalation(@NotNull PacketHandler<?> handler, @NotNull Direction direction, @NotNull Packet forward) {
         this.handler = handler;
         this.direction = direction;
@@ -27,11 +34,26 @@ public class Escalation extends PacketException {
         this.future = null;
     }
 
-    public <A extends ResponsePacket> Escalation(@NotNull ResponsiblePacketHandler<?, ?> handler, @NotNull Direction direction, @NotNull RequestPacket<A> forward, A exceptional) {
+    /**
+     * @param handler     The handler that throws this escalation.
+     * @param direction   The direction where we have to escalate to.
+     * @param forward     The RequestPacket which will be escalated.
+     * @param exceptional The PacketSupplier that will probably be executed by a TimeOutException or a NoConnectionException.
+     * @param <A>         The ResponsePacket which will be sent to the origin DataHandler that starts this conversation.
+     */
+    public <A extends ResponsePacket> Escalation(@NotNull ResponsiblePacketHandler<?, ?> handler, @NotNull Direction direction, @NotNull RequestPacket<A> forward, @NotNull PacketSupplier<A> exceptional) {
         this(handler, direction, -1, forward, exceptional);
     }
 
-    public <A extends ResponsePacket> Escalation(@NotNull ResponsiblePacketHandler<?, ?> handler, @NotNull Direction direction, long timeOut, @NotNull RequestPacket<A> forward, A exceptional) {
+    /**
+     * @param handler     The handler that throws this escalation.
+     * @param direction   The direction where we have to escalate to.
+     * @param timeOut     The timeout in milliseconds for this escalation.
+     * @param forward     The RequestPacket which will be escalated.
+     * @param exceptional The PacketSupplier that will probably be executed by a TimeOutException or a NoConnectionException.
+     * @param <A>         The ResponsePacket which will be sent to the origin DataHandler that starts this conversation.
+     */
+    public <A extends ResponsePacket> Escalation(@NotNull ResponsiblePacketHandler<?, ?> handler, @NotNull Direction direction, long timeOut, @NotNull RequestPacket<A> forward, @NotNull PacketSupplier<A> exceptional) {
         this.handler = handler;
         this.direction = direction;
         this.forward = forward;
@@ -60,7 +82,7 @@ public class Escalation extends PacketException {
         return timeOut == -1 ? def : timeOut;
     }
 
-    public ResponsePacket exceptional() {
-        return exceptional;
+    public ResponsePacket exceptional(Throwable err) {
+        return exceptional.exceptional(err);
     }
 }
