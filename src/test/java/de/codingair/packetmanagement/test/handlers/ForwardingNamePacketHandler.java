@@ -13,7 +13,7 @@ import java.util.concurrent.CompletableFuture;
 
 public class ForwardingNamePacketHandler implements ResponsibleMultiLayerPacketHandler<MultiLayerNameRequestPacket, StringPacket> {
     @Override
-    public @NotNull CompletableFuture<StringPacket> response(@NotNull MultiLayerNameRequestPacket packet, @NotNull Proxy proxy, @Nullable Object connection) throws Escalation {
+    public @NotNull CompletableFuture<StringPacket> response(@NotNull MultiLayerNameRequestPacket packet, @NotNull Proxy proxy, @Nullable Object connection, @NotNull Direction direction) throws Escalation {
         if(packet.id() == 0) throw new Escalation(this, Direction.UP, packet, (err) -> new StringPacket("UNKNOWN"));
         return CompletableFuture.completedFuture(new StringPacket("UNKNOWN"));
     }

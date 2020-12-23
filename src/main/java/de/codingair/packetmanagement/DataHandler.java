@@ -186,9 +186,9 @@ public abstract class DataHandler<C> {
 
                 if(handler instanceof ResponsibleMultiLayerPacketHandler) {
                     ResponsibleMultiLayerPacketHandler<RequestPacket<A>, A> multi = (ResponsibleMultiLayerPacketHandler<RequestPacket<A>, A>) handler;
-                    if(multi.answer(ap, proxy)) {
+                    if(multi.answer(ap, proxy, direction)) {
                         try {
-                            multi.response(ap, proxy, connection).thenAccept(response -> send(response, connection, direction.inverse(), id));
+                            multi.response(ap, proxy, connection, direction).thenAccept(response -> send(response, connection, direction, id));
                         } catch(Escalation e) {
                             Packet escalation = e.packet();
 
@@ -211,18 +211,18 @@ public abstract class DataHandler<C> {
                             }
                         }
                     }
-                } else if(handler.answer(ap, proxy)) handler.response(ap, proxy, connection).thenAccept(response -> send(response, connection, direction, id));
+                } else if(handler.answer(ap, proxy, direction)) handler.response(ap, proxy, connection, direction).thenAccept(response -> send(response, connection, direction, id));
             } else {
                 PacketHandler<Packet> handler = formHandler(packet);
 
                 if(handler instanceof MultiLayerPacketHandler) {
                     MultiLayerPacketHandler<Packet> multi = (MultiLayerPacketHandler<Packet>) handler;
                     try {
-                        multi.process(packet, proxy, connection);
+                        multi.process(packet, proxy, connection, direction);
                     } catch(Escalation e) {
                         send(e.packet(), connection, e.direction());
                     }
-                } else handler.process(packet, proxy, connection);
+                } else handler.process(packet, proxy, connection, direction);
             }
         } catch(IOException e) {
             throw new MalformedPacketException("Cannot handle bytes to form packet!", e);
