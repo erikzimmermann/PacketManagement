@@ -65,14 +65,14 @@ public abstract class DataHandler<C> {
 
     protected void registerPacket(@NotNull Class<? extends Packet> sending) {
         if (id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
-        if (register.containsKey(sending)) throw new IllegalStateException("Packet already registered!");
+        if (register.containsKey(sending)) throw new IllegalStateException("Packet already registered: " + sending);
 
         register.put(sending, id++);
     }
 
     protected <P extends Packet> void registerPacket(@NotNull Class<? extends P> receiving, @NotNull PacketHandler<P> handler) {
         if (id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
-        if (register.containsKey(receiving)) throw new IllegalStateException("Packet already registered!");
+        if (register.containsKey(receiving)) throw new IllegalStateException("Packet already registered: " + receiving);
 
         register.put(receiving, id++);
         handlers.put(receiving, handler);
@@ -84,14 +84,14 @@ public abstract class DataHandler<C> {
 
     public boolean registerPacket(short id, @NotNull Class<? extends Packet> sending) {
         if (this.id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
-        if (register.containsKey(sending)) throw new IllegalStateException("Packet already registered!");
+        if (register.containsKey(sending)) throw new IllegalStateException("Packet already registered: " + sending);
 
         return register.putIfAbsent(sending, id) == null;
     }
 
     public <P extends Packet> boolean registerPacket(short id, @NotNull Class<? extends P> receiving, @NotNull PacketHandler<P> handler) {
         if (this.id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
-        if (register.containsKey(receiving)) throw new IllegalStateException("Packet already registered!");
+        if (register.containsKey(receiving)) throw new IllegalStateException("Packet already registered: " + receiving);
 
         if (register.put(receiving, id) != null) return false;
         handlers.put(receiving, handler);
