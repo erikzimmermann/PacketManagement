@@ -21,7 +21,7 @@ public class TestMultiLayerDataHandler extends SingleConnectionDataHandler {
 
     @Override
     protected void send(@NotNull byte[] data, @NotNull Direction direction) {
-        if(direction == Direction.DOWN) first.receive(data);
+        if (direction == Direction.DOWN) first.receive(data);
         else second.receive(data);
     }
 

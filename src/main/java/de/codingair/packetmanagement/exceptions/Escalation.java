@@ -23,9 +23,9 @@ public class Escalation extends PacketException {
     private final long timeOut;
 
     /**
-     * @param handler     The handler that throws this escalation.
-     * @param direction   The direction where we have to escalate to.
-     * @param forward     The packet which will be escalated.
+     * @param handler   The handler that throws this escalation.
+     * @param direction The direction where we have to escalate to.
+     * @param forward   The packet which will be escalated.
      */
     public Escalation(@NotNull PacketHandler<?> handler, @NotNull Direction direction, @NotNull Packet forward) {
         this.handler = handler;

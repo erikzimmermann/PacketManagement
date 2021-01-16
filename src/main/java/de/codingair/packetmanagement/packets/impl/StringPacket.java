@@ -22,13 +22,13 @@ public class StringPacket implements ResponsePacket {
     @Override
     public void write(DataOutputStream out) throws IOException {
         out.writeByte(this.options);
-        if(this.a != null) out.writeUTF(this.a);
+        if (this.a != null) out.writeUTF(this.a);
     }
 
     @Override
     public void read(DataInputStream in) throws IOException {
         this.options = in.readByte();
-        if((this.options & 1) == 1) this.a = in.readUTF();
+        if ((this.options & 1) == 1) this.a = in.readUTF();
     }
 
     public String a() {

@@ -32,7 +32,7 @@ public class ByteMask implements Serializable {
     public boolean setBit(int index, boolean bit) {
         boolean before = getBit(index);
 
-        if(bit) set(index);
+        if (bit) set(index);
         else clear(index);
 
         return before;
