@@ -9,11 +9,13 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.concurrent.CompletableFuture;
 
-public interface ResponsiblePacketHandler<P extends RequestPacket<?>, A extends ResponsePacket> extends PacketHandler<P> {
+public interface ResponsiblePacketHandler<P extends RequestPacket<A>, A extends ResponsePacket> extends PacketHandler<P> {
+    /*
+      Will only be used when the request packet ignores the response (RequestPacket#noFuture())
+     */
     @Override
-    @Deprecated
     default void process(@NotNull P packet, @NotNull Proxy proxy, @Nullable Object connection, @NotNull Direction direction) {
-        throw new UnsupportedOperationException("Use response(Packet<?> packet) instead.");
+        throw new UnsupportedOperationException("This packet is not prepared for an ignored future. Processed packet: " + packet.getClass());
     }
 
     /**

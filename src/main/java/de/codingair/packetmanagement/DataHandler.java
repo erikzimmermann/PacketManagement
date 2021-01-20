@@ -6,12 +6,10 @@ import de.codingair.packetmanagement.handlers.MultiLayerPacketHandler;
 import de.codingair.packetmanagement.handlers.PacketHandler;
 import de.codingair.packetmanagement.handlers.ResponsibleMultiLayerPacketHandler;
 import de.codingair.packetmanagement.handlers.ResponsiblePacketHandler;
-import de.codingair.packetmanagement.packets.AssignedPacket;
-import de.codingair.packetmanagement.packets.Packet;
-import de.codingair.packetmanagement.packets.RequestPacket;
-import de.codingair.packetmanagement.packets.ResponsePacket;
+import de.codingair.packetmanagement.packets.*;
 import de.codingair.packetmanagement.packets.impl.*;
 import de.codingair.packetmanagement.utils.Direction;
+import de.codingair.packetmanagement.utils.ObjectMerger;
 import de.codingair.packetmanagement.utils.Proxy;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -27,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public abstract class DataHandler<C> {
     protected final String channelBackend, channelProxy;
     protected final ConcurrentHashMap<UUID, CompletableFuture<? extends ResponsePacket>> future = new ConcurrentHashMap<>();
+    protected final ConcurrentHashMap<UUID, ObjectMerger<?>> keep = new ConcurrentHashMap<>();
     protected final ConcurrentHashMap<UUID, Long> timeSpecific = new ConcurrentHashMap<>();
     protected final Proxy proxy;
     private final HashBiMap<Class<? extends Packet>, Short> register = HashBiMap.create();
@@ -178,11 +177,12 @@ public abstract class DataHandler<C> {
             DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes));
 
             Packet packet = formPacket(in.readShort());
-            UUID id = packet instanceof AssignedPacket ? new UUID(in.readLong(), in.readLong()) : null;
+            boolean future = in.readBoolean();
+            UUID id = future && packet instanceof AssignedPacket ? new UUID(in.readLong(), in.readLong()) : null;
             packet.read(in);
 
-            if (packet instanceof ResponsePacket) receiveResponse((A) packet, id);
-            else if (packet instanceof RequestPacket) {
+            if (future && packet instanceof ResponsePacket) receiveResponse((A) packet, id);
+            else if (future && packet instanceof RequestPacket) {
                 RequestPacket<A> ap = (RequestPacket<A>) packet;
                 ResponsiblePacketHandler<RequestPacket<A>, A> handler = formHandler(ap);
 
@@ -234,8 +234,17 @@ public abstract class DataHandler<C> {
     }
 
     protected final <A extends ResponsePacket> void receiveResponse(A packet, UUID id) {
+        ObjectMerger<A> merger = (ObjectMerger<A>) keep.get(id);
+        if (merger != null) {
+            if (merger.append(packet)) {
+                //finalize
+                packet = merger.complete(packet);
+            } else return; //wait for other responses
+        }
+
         this.timeSpecific.remove(id);
         CompletableFuture<?> cf = this.future.remove(id);
+
         if (cf == null) {
             //No CompletableFuture given! Must be a response to another handler or the future is already terminated by a time-out!
             return;
@@ -265,13 +274,25 @@ public abstract class DataHandler<C> {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(stream);
 
+        boolean future = true;
+        if (packet instanceof IgnoreFuture) {
+            future = false;
+            packet = ((IgnoreFuture) packet).getPacket();
+        } else if (packet instanceof MergeFuture) {
+            MergeFuture<?> options = (MergeFuture<?>) packet;
+            packet = ((MergeFuture<?>) packet).getPacket();
+            if (uuid == null) throw new NullPointerException("Cannot send KeepFuture packet without UUID: " + packet.getClass());
+            keep.put(uuid, new ObjectMerger<>(options.getResults(), options.getMerger()));
+        }
+
         Short id = register.get(packet.getClass());
         if (id == null) throw new UnknownPacketException(packet.getClass() + " is not registered!");
 
         try {
             out.writeShort(id);
+            out.writeBoolean(future); //for request packets without response (good for lazy forwarding)
 
-            if (packet instanceof AssignedPacket) {
+            if (future && packet instanceof AssignedPacket) {
                 if (uuid == null) throw new NullPointerException("Cannot send assigned packet without UUID: " + packet.getClass());
                 out.writeLong(uuid.getMostSignificantBits());
                 out.writeLong(uuid.getLeastSignificantBits());
@@ -295,8 +316,9 @@ public abstract class DataHandler<C> {
                 long time = System.currentTimeMillis();
                 timeSpecific.entrySet().removeIf(e -> {
                     if (time >= e.getValue()) {
+                        ObjectMerger<?> merger = keep.remove(e.getKey());
                         CompletableFuture<?> cf = future.remove(e.getKey());
-                        if (cf != null) cf.completeExceptionally(new TimeOutException("The requested packet took too long."));
+                        if (cf != null) cf.completeExceptionally(new TimeOutException("The requested packet took too long.", merger));
                         return true;
                     } else return false;
                 });

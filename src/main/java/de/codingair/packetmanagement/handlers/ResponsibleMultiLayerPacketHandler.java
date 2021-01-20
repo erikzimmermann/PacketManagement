@@ -10,7 +10,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.concurrent.CompletableFuture;
 
-public interface ResponsibleMultiLayerPacketHandler<P extends RequestPacket<?>, A extends ResponsePacket> extends ResponsiblePacketHandler<P, A> {
+public interface ResponsibleMultiLayerPacketHandler<P extends RequestPacket<A>, A extends ResponsePacket> extends ResponsiblePacketHandler<P, A> {
     @NotNull
     CompletableFuture<A> response(@NotNull P packet, @NotNull Proxy proxy, @Nullable Object connection, @NotNull Direction direction) throws Escalation;
 }
