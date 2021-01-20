@@ -44,18 +44,18 @@ public class Escalation extends PacketException {
      * @param <A>         The ResponsePacket which will be sent to the origin DataHandler that starts this conversation.
      */
     public <A extends ResponsePacket, P extends RequestPacket<A>> Escalation(@NotNull ResponsiblePacketHandler<P, A> handler, @NotNull Direction direction, @NotNull P forward, @NotNull PacketSupplier<A> exceptional) {
-        this(handler, direction, -1, forward, exceptional);
+        this(handler, direction, forward, exceptional, -1);
     }
 
     /**
+     * @param <A>         The ResponsePacket which will be sent to the origin DataHandler that starts this conversation.
      * @param handler     The handler that throws this escalation.
      * @param direction   The direction where we have to escalate to.
-     * @param timeOut     The timeout in milliseconds for this escalation.
      * @param forward     The RequestPacket which will be escalated.
      * @param exceptional The PacketSupplier that will probably be executed by a TimeOutException or a NoConnectionException.
-     * @param <A>         The ResponsePacket which will be sent to the origin DataHandler that starts this conversation.
+     * @param timeOut     The timeout in milliseconds for this escalation.
      */
-    public <A extends ResponsePacket, P extends RequestPacket<A>>  Escalation(@NotNull ResponsiblePacketHandler<P, A> handler, @NotNull Direction direction, long timeOut, @NotNull P forward, @NotNull PacketSupplier<A> exceptional) {
+    public <A extends ResponsePacket, P extends RequestPacket<A>>  Escalation(@NotNull ResponsiblePacketHandler<P, A> handler, @NotNull Direction direction, @NotNull P forward, @NotNull PacketSupplier<A> exceptional, long timeOut) {
         this.handler = handler;
         this.direction = direction;
         this.forward = forward;
