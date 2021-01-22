@@ -78,14 +78,14 @@ public abstract class DataHandler<C> {
     }
 
     public <P extends Packet> boolean registerHandler(@NotNull Class<? extends P> receiving, @NotNull PacketHandler<P> handler) {
-        return handlers.putIfAbsent(receiving, handler) == null;
+        return handlers.put(receiving, handler) == null;
     }
 
     public boolean registerPacket(short id, @NotNull Class<? extends Packet> sending) {
         if (this.id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
         if (register.containsKey(sending)) throw new IllegalStateException("Packet already registered: " + sending);
 
-        return register.putIfAbsent(sending, id) == null;
+        return register.put(sending, id) == null;
     }
 
     public <P extends Packet> boolean registerPacket(short id, @NotNull Class<? extends P> receiving, @NotNull PacketHandler<P> handler) {
@@ -118,6 +118,11 @@ public abstract class DataHandler<C> {
 
     public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<A> packet, @Nullable C connection, @NotNull Direction direction, long timeOut) {
         CompletableFuture<A> future = packet.buildFuture();
+        if(!isConnected(direction)) {
+            future.completeExceptionally(new NoConnectionException("No " + direction.name() + " connection established!"));
+            return future;
+        }
+
         send(processPacket(packet, registerFuture(timeOut, future)), connection, direction);
         return future;
     }
