@@ -99,6 +99,17 @@ public class SerializedGeneric implements Serializable {
                 return in.readDouble();
             }
         }),
+        BOOLEAN(Boolean.class, new GenericHandler<Boolean>() {
+            @Override
+            public void handling(DataOutputStream out, Boolean o) throws IOException {
+                out.writeBoolean(o);
+            }
+
+            @Override
+            public Boolean read(DataInputStream in) throws IOException {
+                return in.readBoolean();
+            }
+        }),
         STRING(String.class, new GenericHandler<String>() {
             @Override
             public void handling(DataOutputStream out, String o) throws IOException {
@@ -129,7 +140,7 @@ public class SerializedGeneric implements Serializable {
                 if (value.generic.isInstance(o)) return value;
             }
 
-            throw new IllegalStateException("Object " + o + " is not a generic!");
+            throw new IllegalStateException("Object " + o + " is not a generic! Class: " + o.getClass().getName());
         }
 
         public static void write(DataOutputStream out, Object o) throws IOException {
