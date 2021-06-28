@@ -1,10 +1,12 @@
 package de.codingair.packetmanagement.utils;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.*;
 import java.util.function.Supplier;
 
@@ -140,7 +142,7 @@ public class SerializedGeneric implements Serializable {
                 if (value.generic.isInstance(o)) return value;
             }
 
-            throw new IllegalStateException("Object " + o + " is not a generic! Class: " + o.getClass().getName());
+            throw new UnsupportedTypeException(null, o);
         }
 
         public static void write(DataOutputStream out, Object o) throws IOException {
@@ -176,7 +178,11 @@ public class SerializedGeneric implements Serializable {
                     key.write(out);
 
                     SerializedGeneric value = new SerializedGeneric(e.getValue());
-                    value.write(out);
+                    try {
+                        value.write(out);
+                    } catch (UnsupportedTypeException ex) {
+                        throw new UnsupportedTypeException(e.getKey(), ex.o);
+                    }
                 }
             }
 
@@ -244,6 +250,15 @@ public class SerializedGeneric implements Serializable {
             protected abstract void handling(DataOutputStream out, G o) throws IOException;
 
             public abstract G read(DataInputStream in) throws IOException;
+        }
+    }
+
+    public static class UnsupportedTypeException extends IllegalStateException {
+        private final Object o;
+
+        public UnsupportedTypeException(@Nullable Object key, @NotNull Object o) {
+            super("Object " + o + " is not a generic! Class: " + o.getClass().getName() + (key == null ? "" : " (Key: '" + key + "')"));
+            this.o = o;
         }
     }
 }
