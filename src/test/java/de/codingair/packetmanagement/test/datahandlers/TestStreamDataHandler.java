@@ -1,17 +1,17 @@
-package de.codingair.packetmanagement.test;
+package de.codingair.packetmanagement.test.datahandlers;
 
-import de.codingair.packetmanagement.test.handlers.NamePacketHandler;
-import de.codingair.packetmanagement.test.handlers.RespondingNamePacketHandler;
-import de.codingair.packetmanagement.test.handlers.SimplePacketHandler;
+import de.codingair.packetmanagement.test.packethandlers.NamePacketHandler;
+import de.codingair.packetmanagement.test.packethandlers.RespondingNamePacketHandler;
+import de.codingair.packetmanagement.test.packethandlers.SimplePacketHandler;
 import de.codingair.packetmanagement.test.packets.MultiLayerNameRequestPacket;
 import de.codingair.packetmanagement.test.packets.NameRequestPacket;
 import de.codingair.packetmanagement.test.packets.SimplePacket;
 import de.codingair.packetmanagement.test.proxies.TestProxy;
 import de.codingair.packetmanagement.utils.Direction;
-import de.codingair.packetmanagement.variants.OneWaySingleConnectionDataHandler;
+import de.codingair.packetmanagement.variants.bytestream.OneWaySingleConnectionStreamDataHandler;
 
-public class TestDataHandler extends OneWaySingleConnectionDataHandler {
-    public TestDataHandler() {
+public class TestStreamDataHandler extends OneWaySingleConnectionStreamDataHandler {
+    public TestStreamDataHandler() {
         super("test", new TestProxy());
     }
 

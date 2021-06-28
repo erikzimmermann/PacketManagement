@@ -1,4 +1,4 @@
-package de.codingair.packetmanagement.test.handlers;
+package de.codingair.packetmanagement.test.packethandlers;
 
 import de.codingair.packetmanagement.handlers.PacketHandler;
 import de.codingair.packetmanagement.test.packets.SimplePacket;

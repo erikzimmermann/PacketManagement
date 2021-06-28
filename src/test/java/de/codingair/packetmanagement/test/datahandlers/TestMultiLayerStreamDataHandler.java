@@ -1,21 +1,21 @@
-package de.codingair.packetmanagement.test;
+package de.codingair.packetmanagement.test.datahandlers;
 
-import de.codingair.packetmanagement.test.handlers.ForwardingNamePacketHandler;
-import de.codingair.packetmanagement.test.handlers.NamePacketHandler;
-import de.codingair.packetmanagement.test.handlers.SimplePacketHandler;
+import de.codingair.packetmanagement.test.packethandlers.ForwardingNamePacketHandler;
+import de.codingair.packetmanagement.test.packethandlers.NamePacketHandler;
+import de.codingair.packetmanagement.test.packethandlers.SimplePacketHandler;
 import de.codingair.packetmanagement.test.packets.MultiLayerNameRequestPacket;
 import de.codingair.packetmanagement.test.packets.NameRequestPacket;
 import de.codingair.packetmanagement.test.packets.SimplePacket;
 import de.codingair.packetmanagement.test.proxies.MultiLayerProxy;
 import de.codingair.packetmanagement.utils.Direction;
-import de.codingair.packetmanagement.variants.OneWaySingleConnectionDataHandler;
-import de.codingair.packetmanagement.variants.SingleConnectionDataHandler;
+import de.codingair.packetmanagement.variants.bytestream.OneWaySingleConnectionStreamDataHandler;
+import de.codingair.packetmanagement.variants.bytestream.SingleConnectionStreamDataHandler;
 import org.jetbrains.annotations.NotNull;
 
-public class TestMultiLayerDataHandler extends SingleConnectionDataHandler {
-    public OneWaySingleConnectionDataHandler first, second;
+public class TestMultiLayerStreamDataHandler extends SingleConnectionStreamDataHandler {
+    public OneWaySingleConnectionStreamDataHandler first, second;
 
-    public TestMultiLayerDataHandler() {
+    public TestMultiLayerStreamDataHandler() {
         super("test", new MultiLayerProxy());
     }
 

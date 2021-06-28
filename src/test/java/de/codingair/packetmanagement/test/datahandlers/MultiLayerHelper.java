@@ -1,21 +1,22 @@
-package de.codingair.packetmanagement.test;
+package de.codingair.packetmanagement.test.datahandlers;
 
-import de.codingair.packetmanagement.test.handlers.NamePacketHandler;
-import de.codingair.packetmanagement.test.handlers.RespondingNamePacketHandler;
-import de.codingair.packetmanagement.test.handlers.SimplePacketHandler;
+import de.codingair.packetmanagement.test.packethandlers.NamePacketHandler;
+import de.codingair.packetmanagement.test.packethandlers.RespondingNamePacketHandler;
+import de.codingair.packetmanagement.test.packethandlers.SimplePacketHandler;
 import de.codingair.packetmanagement.test.packets.MultiLayerNameRequestPacket;
 import de.codingair.packetmanagement.test.packets.NameRequestPacket;
 import de.codingair.packetmanagement.test.packets.SimplePacket;
 import de.codingair.packetmanagement.utils.Direction;
 import de.codingair.packetmanagement.utils.Proxy;
-import de.codingair.packetmanagement.variants.OneWaySingleConnectionDataHandler;
-import de.codingair.packetmanagement.variants.SingleConnectionDataHandler;
+import de.codingair.packetmanagement.variants.bytestream.OneWaySingleConnectionStreamDataHandler;
+import de.codingair.packetmanagement.variants.bytestream.SingleConnectionStreamDataHandler;
+import org.jetbrains.annotations.NotNull;
 
-public class MultiLayerHelper extends OneWaySingleConnectionDataHandler {
+public class MultiLayerHelper extends OneWaySingleConnectionStreamDataHandler {
     private final Direction instance;
-    public SingleConnectionDataHandler other;
+    public SingleConnectionStreamDataHandler other;
 
-    public MultiLayerHelper(Direction instance, Proxy proxy) {
+    public MultiLayerHelper(Direction instance, @NotNull Proxy proxy) {
         super("test", proxy);
         this.instance = instance;
     }

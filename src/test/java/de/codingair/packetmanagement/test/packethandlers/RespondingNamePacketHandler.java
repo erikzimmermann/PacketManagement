@@ -1,4 +1,4 @@
-package de.codingair.packetmanagement.test.handlers;
+package de.codingair.packetmanagement.test.packethandlers;
 
 import de.codingair.packetmanagement.exceptions.Escalation;
 import de.codingair.packetmanagement.handlers.ResponsibleMultiLayerPacketHandler;
