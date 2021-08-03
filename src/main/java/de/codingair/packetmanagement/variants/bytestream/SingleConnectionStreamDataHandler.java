@@ -1,6 +1,5 @@
-package de.codingair.packetmanagement.variants;
+package de.codingair.packetmanagement.variants.bytestream;
 
-import de.codingair.packetmanagement.DataHandler;
 import de.codingair.packetmanagement.packets.Packet;
 import de.codingair.packetmanagement.packets.RequestPacket;
 import de.codingair.packetmanagement.packets.ResponsePacket;
@@ -11,27 +10,21 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.concurrent.CompletableFuture;
 
-public abstract class OneWaySingleConnectionDataHandler extends DataHandler<Object> {
-    public OneWaySingleConnectionDataHandler(String channelName, Proxy proxy) {
+public abstract class SingleConnectionStreamDataHandler extends StreamDataHandler<Object> {
+    public SingleConnectionStreamDataHandler(@NotNull String channelName, @NotNull Proxy proxy) {
         super(channelName, proxy);
     }
 
-    @Override
-    @Deprecated
-    protected boolean isConnected(Direction direction) {
-        return true;
-    }
-
-    protected abstract void send(byte[] data);
+    protected abstract void send(byte[] data, Direction direction);
 
     @Override
     @Deprecated
     protected void send(byte[] data, Object connection, Direction direction) {
-        send(data);
+        send(data, direction);
     }
 
-    public void send(@NotNull Packet packet) {
-        super.send(packet, null, Direction.UNKNOWN);
+    public void send(@NotNull Packet packet, @NotNull Direction direction) {
+        super.send(packet, null, direction);
     }
 
     @Override
@@ -40,8 +33,8 @@ public abstract class OneWaySingleConnectionDataHandler extends DataHandler<Obje
         super.send(packet, connection, direction);
     }
 
-    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<A> packet) {
-        return super.send(packet, null, Direction.UNKNOWN);
+    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<A> packet, @NotNull Direction direction) {
+        return send(packet, direction, 0);
     }
 
     @Override
@@ -50,8 +43,8 @@ public abstract class OneWaySingleConnectionDataHandler extends DataHandler<Obje
         return super.send(packet, connection, direction);
     }
 
-    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<A> packet, long timeOut) {
-        return super.send(packet, null, Direction.UNKNOWN, timeOut);
+    public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<A> packet, @NotNull Direction direction, long timeOut) {
+        return super.send(packet, null, direction, timeOut);
     }
 
     @Override
@@ -60,13 +53,13 @@ public abstract class OneWaySingleConnectionDataHandler extends DataHandler<Obje
         return super.send(packet, connection, direction, timeOut);
     }
 
-    public void receive(@NotNull byte[] bytes) {
-        super.receive(bytes, null, Direction.UNKNOWN);
+    public void receive(@NotNull byte[] bytes, @NotNull Direction direction) {
+        super.receive(bytes, null, direction);
     }
 
     @Override
     @Deprecated
-    public <A extends ResponsePacket> void receive(@NotNull byte[] bytes, @Nullable Object connection, @NotNull Direction direction) {
-        super.receive(bytes, connection, direction);
+    public void receive(@NotNull byte[] data, @Nullable Object connection, @NotNull Direction direction) {
+        super.receive(data, connection, direction);
     }
 }

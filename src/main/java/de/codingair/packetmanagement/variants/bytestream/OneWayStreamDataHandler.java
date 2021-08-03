@@ -1,6 +1,5 @@
-package de.codingair.packetmanagement.variants;
+package de.codingair.packetmanagement.variants.bytestream;
 
-import de.codingair.packetmanagement.DataHandler;
 import de.codingair.packetmanagement.packets.Packet;
 import de.codingair.packetmanagement.packets.RequestPacket;
 import de.codingair.packetmanagement.packets.ResponsePacket;
@@ -11,8 +10,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.concurrent.CompletableFuture;
 
-public abstract class OneWayDataHandler<C> extends DataHandler<C> {
-    public OneWayDataHandler(String channelName, Proxy proxy) {
+public abstract class OneWayStreamDataHandler<C> extends StreamDataHandler<C> {
+    public OneWayStreamDataHandler(@NotNull String channelName, @NotNull Proxy proxy) {
         super(channelName, proxy);
     }
 

@@ -1,20 +1,18 @@
 package de.codingair.packetmanagement;
 
-import com.google.common.collect.HashBiMap;
 import de.codingair.packetmanagement.exceptions.*;
 import de.codingair.packetmanagement.handlers.MultiLayerPacketHandler;
 import de.codingair.packetmanagement.handlers.PacketHandler;
 import de.codingair.packetmanagement.handlers.ResponsibleMultiLayerPacketHandler;
 import de.codingair.packetmanagement.handlers.ResponsiblePacketHandler;
 import de.codingair.packetmanagement.packets.*;
-import de.codingair.packetmanagement.packets.impl.*;
 import de.codingair.packetmanagement.utils.Direction;
+import de.codingair.packetmanagement.utils.FormedPacket;
 import de.codingair.packetmanagement.utils.ObjectMerger;
 import de.codingair.packetmanagement.utils.Proxy;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
 import java.util.HashMap;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -22,79 +20,35 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-public abstract class DataHandler<C> {
+/**
+ * @param <C> The connection channel type.
+ * @param <D> The sending data type.
+ */
+public abstract class DataHandler<C, D> {
     protected final String channelBackend, channelProxy;
     protected final ConcurrentHashMap<UUID, CompletableFuture<? extends ResponsePacket>> future = new ConcurrentHashMap<>();
     protected final ConcurrentHashMap<UUID, ObjectMerger<?>> keep = new ConcurrentHashMap<>();
     protected final ConcurrentHashMap<UUID, Long> timeSpecific = new ConcurrentHashMap<>();
     protected final Proxy proxy;
-    private final HashBiMap<Class<? extends Packet>, Short> register = HashBiMap.create();
-    private final HashMap<Class<? extends Packet>, PacketHandler<?>> handlers = new HashMap<>();
+    protected final HashMap<Class<? extends Packet>, PacketHandler<?>> handlers = new HashMap<>();
     protected long timeOut = 250L;
-    private Short id;
+    /**
+     * Ignores incoming packets which cannot be processed. Either unregistered packets or packets without a handler.
+     */
+    private boolean ignoreUnregistered = false;
     private Timer timeOutTimer = new Timer("DataHandler-TimeOut");
     private boolean running = false;
 
-    public DataHandler(String channelName, Proxy proxy) {
+    public DataHandler(@NotNull String channelName, @NotNull Proxy proxy) {
         this.proxy = proxy;
         channelBackend = channelName + ":backend";
         channelProxy = channelName + ":proxy";
-
-        //register standard packets
-        register();
-
-        //register custom packets
-        registering();
-        id = null;
     }
-
-    private void register() {
-        id = -6;
-        registerPacket(SuccessPacket.class);
-        registerPacket(StringPacket.class);
-        registerPacket(IntegerPacket.class);
-        registerPacket(LongPacket.class);
-        registerPacket(BytePacket.class);
-        registerPacket(BooleanPacket.class);
-    }
-
-    protected abstract void registering();
 
     protected abstract boolean isConnected(Direction direction);
 
-    protected void registerPacket(@NotNull Class<? extends Packet> sending) {
-        if (id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
-        if (register.containsKey(sending)) throw new IllegalStateException("Packet already registered: " + sending);
-
-        register.put(sending, id++);
-    }
-
-    protected <P extends Packet> void registerPacket(@NotNull Class<? extends P> receiving, @NotNull PacketHandler<P> handler) {
-        if (id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
-        if (register.containsKey(receiving)) throw new IllegalStateException("Packet already registered: " + receiving);
-
-        register.put(receiving, id++);
-        handlers.put(receiving, handler);
-    }
-
     public <P extends Packet> boolean registerHandler(@NotNull Class<? extends P> receiving, @NotNull PacketHandler<P> handler) {
         return handlers.put(receiving, handler) == null;
-    }
-
-    public boolean registerPacket(short id, @NotNull Class<? extends Packet> sending) {
-        if (this.id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
-        if (register.containsKey(sending)) throw new IllegalStateException("Packet already registered: " + sending);
-
-        return register.put(sending, id) == null;
-    }
-
-    public <P extends Packet> boolean registerPacket(short id, @NotNull Class<? extends P> receiving, @NotNull PacketHandler<P> handler) {
-        if (this.id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
-        if (register.containsKey(receiving)) throw new IllegalStateException("Packet already registered: " + receiving);
-
-        if (register.put(receiving, id) != null) return false;
-        handlers.put(receiving, handler);
-        return true;
     }
 
     /**
@@ -102,7 +56,7 @@ public abstract class DataHandler<C> {
      * @param connection Connection which maybe will be used to send the data.
      * @param direction  The direction in which we need to send our data
      */
-    protected abstract void send(byte[] data, C connection, Direction direction);
+    protected abstract void send(D data, C connection, Direction direction);
 
     public void send(@NotNull Packet packet, @Nullable C connection, @NotNull Direction direction) {
         send(packet, connection, direction, null);
@@ -118,7 +72,7 @@ public abstract class DataHandler<C> {
 
     public <A extends ResponsePacket> CompletableFuture<A> send(@NotNull RequestPacket<A> packet, @Nullable C connection, @NotNull Direction direction, long timeOut) {
         CompletableFuture<A> future = packet.buildFuture();
-        if(!isConnected(direction)) {
+        if (!isConnected(direction)) {
             future.completeExceptionally(new NoConnectionException("No " + direction.name() + " connection established!"));
             return future;
         }
@@ -155,39 +109,40 @@ public abstract class DataHandler<C> {
         if (handler == null) throw new NoHandlerException(packet.getClass());
 
         try {
+            //noinspection unchecked
             return (H) handler;
         } catch (ClassCastException e) {
             throw new HandlerException("PacketHandler " + handler + " cannot be used for packet " + packet.getClass() + "!", e);
         }
     }
 
-    @NotNull <T> T formPacket(short id) throws UnknownPacketException, IllegalAccessException, InstantiationException {
-        Class<?> c = register.inverse().get(id);
-        if (c == null) throw new UnknownPacketException("The packet id " + id + " is not associated with a packet class!");
-
-        try {
-            return (T) c.newInstance();
-        } catch (ClassCastException e) {
-            throw new PacketException("Cannot cast packet to specified object.", e);
-        }
-    }
+    public abstract @NotNull FormedPacket convertReceivedData(@NotNull D data, @Nullable C connection, @NotNull Direction direction);
 
     /**
-     * @param bytes      Sent Byte-Array.
+     * @param data       Sent data.
      * @param connection Connection which maybe will be used to send the data.
      * @param direction  Direction where we get our data from.
      */
-    public <A extends ResponsePacket> void receive(@NotNull byte[] bytes, @Nullable C connection, @NotNull Direction direction) {
+    public <A extends ResponsePacket> void receive(@NotNull D data, @Nullable C connection, @NotNull Direction direction) {
+        FormedPacket formedPacket;
+
         try {
-            DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes));
+            formedPacket = convertReceivedData(data, connection, direction);
+        } catch (UnknownPacketException ex) {
+            if (ignoreUnregistered) return;
+            throw ex;
+        }
 
-            Packet packet = formPacket(in.readShort());
-            boolean future = in.readBoolean();
-            UUID id = future && packet instanceof AssignedPacket ? new UUID(in.readLong(), in.readLong()) : null;
-            packet.read(in);
+        Packet packet = formedPacket.getPacket();
+        boolean future = formedPacket.hasFuture();
+        UUID id = formedPacket.getFutureId();
 
-            if (future && packet instanceof ResponsePacket) receiveResponse((A) packet, id);
-            else if (future && packet instanceof RequestPacket) {
+        try {
+            if (future && packet instanceof ResponsePacket) {
+                //noinspection unchecked
+                receiveResponse((A) packet, id);
+            } else if (future && packet instanceof RequestPacket) {
+                @SuppressWarnings ("unchecked")
                 RequestPacket<A> ap = (RequestPacket<A>) packet;
                 ResponsiblePacketHandler<RequestPacket<A>, A> handler = formHandler(ap);
 
@@ -231,14 +186,14 @@ public abstract class DataHandler<C> {
                     }
                 } else handler.process(packet, proxy, connection, direction);
             }
-        } catch (IOException e) {
-            throw new MalformedPacketException("Cannot handle bytes to form packet!", e);
-        } catch (IllegalAccessException | InstantiationException e) {
-            throw new PacketException("Cannot create packet instance!", e);
+        } catch (NoHandlerException ex) {
+            if (ignoreUnregistered) return;
+            throw ex;
         }
     }
 
     protected final <A extends ResponsePacket> void receiveResponse(A packet, UUID id) {
+        @SuppressWarnings ("unchecked")
         ObjectMerger<A> merger = (ObjectMerger<A>) keep.get(id);
         if (merger != null) {
             if (merger.append(packet)) {
@@ -275,10 +230,9 @@ public abstract class DataHandler<C> {
         return id;
     }
 
-    byte[] processPacket(@NotNull Packet packet, @Nullable UUID uuid) {
-        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        DataOutputStream out = new DataOutputStream(stream);
+    public abstract D serializePacket(@NotNull Packet packet, boolean future, @Nullable UUID uuid);
 
+    private D processPacket(@NotNull Packet packet, @Nullable UUID uuid) {
         boolean future = true;
         if (packet instanceof IgnoreFuture) {
             future = false;
@@ -286,29 +240,19 @@ public abstract class DataHandler<C> {
         } else if (packet instanceof MergeFuture) {
             MergeFuture<?> options = (MergeFuture<?>) packet;
             packet = ((MergeFuture<?>) packet).getPacket();
-            if (uuid == null) throw new NullPointerException("Cannot send KeepFuture packet without UUID: " + packet.getClass());
-            keep.put(uuid, new ObjectMerger<>(options.getResults(), options.getMerger()));
+            registerOutgoingPacket(packet, uuid, options);
         }
 
-        Short id = register.get(packet.getClass());
-        if (id == null) throw new UnknownPacketException(packet.getClass() + " is not registered!");
+        if (future && packet instanceof AssignedPacket) {
+            if (uuid == null) throw new NullPointerException("Cannot send assigned packet without UUID: " + packet.getClass());
+        } else if (uuid != null) throw new UnsupportedIdException("Cannot send id (" + uuid + ") for unsupported packet class: " + packet.getClass());
 
-        try {
-            out.writeShort(id);
-            out.writeBoolean(future); //for request packets without response (good for lazy forwarding)
+        return serializePacket(packet, future, uuid);
+    }
 
-            if (future && packet instanceof AssignedPacket) {
-                if (uuid == null) throw new NullPointerException("Cannot send assigned packet without UUID: " + packet.getClass());
-                out.writeLong(uuid.getMostSignificantBits());
-                out.writeLong(uuid.getLeastSignificantBits());
-            } else if (uuid != null) throw new UnsupportedIdException("Cannot send id (" + uuid + ") for unsupported packet class: " + packet.getClass());
-
-            packet.write(out);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        return stream.toByteArray();
+    protected void registerOutgoingPacket(Packet packet, @Nullable UUID uuid, MergeFuture<?> options) {
+        if (uuid == null) throw new NullPointerException("Cannot send KeepFuture packet without UUID: " + packet.getClass());
+        keep.put(uuid, new ObjectMerger<>(options.getResults(), options.getMerger()));
     }
 
     private synchronized void checkTimer() {
@@ -340,6 +284,16 @@ public abstract class DataHandler<C> {
     }
 
     public <P extends Proxy> P getProxy() {
+        //noinspection unchecked
         return (P) proxy;
+    }
+
+    public boolean isIgnoreUnregistered() {
+        return ignoreUnregistered;
+    }
+
+    public DataHandler<C, D> setIgnoreUnregistered(boolean ignoreUnregistered) {
+        this.ignoreUnregistered = ignoreUnregistered;
+        return this;
     }
 }

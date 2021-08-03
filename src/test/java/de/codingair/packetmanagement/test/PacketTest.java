@@ -2,6 +2,7 @@ package de.codingair.packetmanagement.test;
 
 import de.codingair.packetmanagement.exceptions.UnknownPacketException;
 import de.codingair.packetmanagement.packets.impl.SuccessPacket;
+import de.codingair.packetmanagement.test.datahandlers.*;
 import de.codingair.packetmanagement.test.packets.MultiLayerNameRequestPacket;
 import de.codingair.packetmanagement.test.packets.NameRequestPacket;
 import de.codingair.packetmanagement.test.packets.SimplePacket;
@@ -15,15 +16,15 @@ import org.junit.jupiter.api.Test;
 import java.util.concurrent.CompletionException;
 
 public class PacketTest {
-    private final TestDataHandler standard = new TestDataHandler();
-    private final TestTimeOutHandler timeSpecific = new TestTimeOutHandler();
-    private final OneWayDataHandler oneWay = new OneWayDataHandler();
+    private final TestStreamDataHandler standard = new TestStreamDataHandler();
+    private final TestTimeOutHandlerStream timeSpecific = new TestTimeOutHandlerStream();
+    private final OneWayStreamDataHandler oneWay = new OneWayStreamDataHandler();
     private final MultiLayerHelper multiLayer = new MultiLayerHelper(Direction.DOWN, new TestProxy());
 
     public PacketTest() {
-        oneWay.other = new OneWayDataHandler();
+        oneWay.other = new OneWayStreamDataHandler();
 
-        TestMultiLayerDataHandler multiLayerDataHandler = new TestMultiLayerDataHandler();
+        TestMultiLayerStreamDataHandler multiLayerDataHandler = new TestMultiLayerStreamDataHandler();
         multiLayer.other = multiLayerDataHandler;
         MultiLayerHelper multiLayerHelperBackend = new MultiLayerHelper(Direction.UP, new SecondTestProxy());
         multiLayerHelperBackend.other = multiLayerDataHandler;
@@ -64,5 +65,11 @@ public class PacketTest {
     @Test
     void multiLayer() {
         Assertions.assertEquals(multiLayer.send(new MultiLayerNameRequestPacket()).join().a(), "CodingAir");
+    }
+
+    @Test
+    void gsonTest() {
+        TestGsonDataHandler gson = new TestGsonDataHandler();
+        Assertions.assertEquals(gson.send(new NameRequestPacket(0)).join().a(), "CodingAir");
     }
 }
