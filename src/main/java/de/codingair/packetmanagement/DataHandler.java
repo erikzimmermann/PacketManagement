@@ -32,6 +32,10 @@ public abstract class DataHandler<C, D> {
     protected final Proxy proxy;
     protected final HashMap<Class<? extends Packet>, PacketHandler<?>> handlers = new HashMap<>();
     protected long timeOut = 250L;
+    /**
+     * Ignores incoming packets which cannot be processed. Either unregistered packets or packets without a handler.
+     */
+    private boolean ignoreUnregistered = false;
     private Timer timeOutTimer = new Timer("DataHandler-TimeOut");
     private boolean running = false;
 
@@ -120,58 +124,71 @@ public abstract class DataHandler<C, D> {
      * @param direction  Direction where we get our data from.
      */
     public <A extends ResponsePacket> void receive(@NotNull D data, @Nullable C connection, @NotNull Direction direction) {
-        FormedPacket formedPacket = convertReceivedData(data, connection, direction);
+        FormedPacket formedPacket;
+
+        try {
+            formedPacket = convertReceivedData(data, connection, direction);
+        } catch (UnknownPacketException ex) {
+            if (ignoreUnregistered) return;
+            throw ex;
+        }
+
         Packet packet = formedPacket.getPacket();
         boolean future = formedPacket.hasFuture();
         UUID id = formedPacket.getFutureId();
 
-        if (future && packet instanceof ResponsePacket) {
-            //noinspection unchecked
-            receiveResponse((A) packet, id);
-        } else if (future && packet instanceof RequestPacket) {
-            @SuppressWarnings ("unchecked")
-            RequestPacket<A> ap = (RequestPacket<A>) packet;
-            ResponsiblePacketHandler<RequestPacket<A>, A> handler = formHandler(ap);
+        try {
+            if (future && packet instanceof ResponsePacket) {
+                //noinspection unchecked
+                receiveResponse((A) packet, id);
+            } else if (future && packet instanceof RequestPacket) {
+                @SuppressWarnings ("unchecked")
+                RequestPacket<A> ap = (RequestPacket<A>) packet;
+                ResponsiblePacketHandler<RequestPacket<A>, A> handler = formHandler(ap);
 
-            if (handler instanceof ResponsibleMultiLayerPacketHandler) {
-                ResponsibleMultiLayerPacketHandler<RequestPacket<A>, A> multi = (ResponsibleMultiLayerPacketHandler<RequestPacket<A>, A>) handler;
-                if (multi.answer(ap, proxy, direction)) {
-                    try {
-                        multi.response(ap, proxy, connection, direction).thenAccept(response -> send(response, connection, direction, id));
-                    } catch (Escalation e) {
-                        Packet escalation = e.packet();
+                if (handler instanceof ResponsibleMultiLayerPacketHandler) {
+                    ResponsibleMultiLayerPacketHandler<RequestPacket<A>, A> multi = (ResponsibleMultiLayerPacketHandler<RequestPacket<A>, A>) handler;
+                    if (multi.answer(ap, proxy, direction)) {
+                        try {
+                            multi.response(ap, proxy, connection, direction).thenAccept(response -> send(response, connection, direction, id));
+                        } catch (Escalation e) {
+                            Packet escalation = e.packet();
 
-                        if (escalation instanceof RequestPacket) {
-                            //Register response to origin
-                            e.future().whenComplete((response, err) -> {
-                                if (err != null) send(e.exceptional(err), connection, direction, id);
-                                else send(response, connection, direction, id);
-                            });
+                            if (escalation instanceof RequestPacket) {
+                                //Register response to origin
+                                e.future().whenComplete((response, err) -> {
+                                    if (err != null) send(e.exceptional(err), connection, direction, id);
+                                    else send(response, connection, direction, id);
+                                });
 
-                            if (!isConnected(e.direction())) {
-                                e.future().completeExceptionally(new NoConnectionException("No " + e.direction().name() + " connection established!"));
+                                if (!isConnected(e.direction())) {
+                                    e.future().completeExceptionally(new NoConnectionException("No " + e.direction().name() + " connection established!"));
+                                } else {
+                                    //Perform escalation
+                                    send(processPacket(e.packet(), registerFuture(e.timeOut(timeOut), e.future())), connection, e.direction());
+                                }
                             } else {
-                                //Perform escalation
-                                send(processPacket(e.packet(), registerFuture(e.timeOut(timeOut), e.future())), connection, e.direction());
+                                //Perform simple escalation
+                                send(processPacket(e.packet(), null), connection, e.direction());
                             }
-                        } else {
-                            //Perform simple escalation
-                            send(processPacket(e.packet(), null), connection, e.direction());
                         }
                     }
-                }
-            } else if (handler.answer(ap, proxy, direction)) handler.response(ap, proxy, connection, direction).thenAccept(response -> send(response, connection, direction, id));
-        } else {
-            PacketHandler<Packet> handler = formHandler(packet);
+                } else if (handler.answer(ap, proxy, direction)) handler.response(ap, proxy, connection, direction).thenAccept(response -> send(response, connection, direction, id));
+            } else {
+                PacketHandler<Packet> handler = formHandler(packet);
 
-            if (handler instanceof MultiLayerPacketHandler) {
-                MultiLayerPacketHandler<Packet> multi = (MultiLayerPacketHandler<Packet>) handler;
-                try {
-                    multi.process(packet, proxy, connection, direction);
-                } catch (Escalation e) {
-                    send(e.packet(), connection, e.direction());
-                }
-            } else handler.process(packet, proxy, connection, direction);
+                if (handler instanceof MultiLayerPacketHandler) {
+                    MultiLayerPacketHandler<Packet> multi = (MultiLayerPacketHandler<Packet>) handler;
+                    try {
+                        multi.process(packet, proxy, connection, direction);
+                    } catch (Escalation e) {
+                        send(e.packet(), connection, e.direction());
+                    }
+                } else handler.process(packet, proxy, connection, direction);
+            }
+        } catch (NoHandlerException ex) {
+            if (ignoreUnregistered) return;
+            throw ex;
         }
     }
 
@@ -269,5 +286,14 @@ public abstract class DataHandler<C, D> {
     public <P extends Proxy> P getProxy() {
         //noinspection unchecked
         return (P) proxy;
+    }
+
+    public boolean isIgnoreUnregistered() {
+        return ignoreUnregistered;
+    }
+
+    public DataHandler<C, D> setIgnoreUnregistered(boolean ignoreUnregistered) {
+        this.ignoreUnregistered = ignoreUnregistered;
+        return this;
     }
 }
