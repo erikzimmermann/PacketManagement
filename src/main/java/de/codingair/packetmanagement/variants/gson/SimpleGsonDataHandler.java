@@ -1,10 +1,10 @@
 package de.codingair.packetmanagement.variants.gson;
 
-import de.codingair.packetmanagement.packets.Packet;
-import de.codingair.packetmanagement.packets.RequestPacket;
-import de.codingair.packetmanagement.packets.ResponsePacket;
 import de.codingair.packetmanagement.utils.Direction;
 import de.codingair.packetmanagement.utils.Proxy;
+import de.codingair.packetmanagement.variants.gson.packets.Packet;
+import de.codingair.packetmanagement.variants.gson.packets.RequestPacket;
+import de.codingair.packetmanagement.variants.gson.packets.ResponsePacket;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
