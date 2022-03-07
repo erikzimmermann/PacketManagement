@@ -6,7 +6,7 @@
 
     <groupId>com.github.CodingAir</groupId>
     <artifactId>PacketManagement</artifactId>
-    <version>1.15</version>
+    <version>1.16</version>
 
     <dependencies>
         <dependency>
