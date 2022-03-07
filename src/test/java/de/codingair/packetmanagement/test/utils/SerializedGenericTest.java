@@ -9,7 +9,7 @@ import java.util.Objects;
 class SerializedGenericTest {
 
     @Test
-    void testFloat() throws IOException {
+    void testFloat() throws IOException, ClassNotFoundException {
         SerializedGeneric g = new SerializedGeneric(0.5F);
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -24,7 +24,7 @@ class SerializedGenericTest {
     }
 
     @Test
-    void testByte() throws IOException {
+    void testByte() throws IOException, ClassNotFoundException {
         SerializedGeneric g = new SerializedGeneric((byte) 1);
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -39,7 +39,7 @@ class SerializedGenericTest {
     }
 
     @Test
-    void testInt() throws IOException {
+    void testInt() throws IOException, ClassNotFoundException {
         SerializedGeneric g = new SerializedGeneric(1);
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -54,7 +54,7 @@ class SerializedGenericTest {
     }
 
     @Test
-    void testNotInt() throws IOException {
+    void testNotInt() throws IOException, ClassNotFoundException {
         SerializedGeneric g = new SerializedGeneric(1);
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();

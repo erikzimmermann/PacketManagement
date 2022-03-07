@@ -1,37 +1,56 @@
 package de.codingair.packetmanagement.utils;
 
+import com.google.gson.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
+import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Supplier;
 
 public class SerializedGeneric implements Serializable {
-    private Object object;
+    private String object;
 
     public SerializedGeneric() {
     }
 
-    public SerializedGeneric(@NotNull Object object) {
-        this.object = object;
+    public SerializedGeneric(@NotNull Object object) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DataOutputStream dos = new DataOutputStream(baos);
+        Generic.write(dos, object);
+
+        this.object = baos.toString();
     }
 
     @Override
     public void write(DataOutputStream out) throws IOException {
-        Generic.write(out, this.object);
+        out.writeUTF(this.object);
     }
 
     @Override
     public void read(DataInputStream in) throws IOException {
-        this.object = Generic.read(in);
+        this.object = in.readUTF();
     }
 
-    public Object getObject() {
-        return object;
+    public byte[] getData() {
+        return object.getBytes(StandardCharsets.UTF_8);
+    }
+
+    @NotNull
+    public Object getObject() throws IOException {
+        ByteArrayInputStream baos = new ByteArrayInputStream(getData());
+        DataInputStream dis = new DataInputStream(baos);
+        return Generic.read(dis);
+    }
+
+    private static class GsonWrapper {
+        public final Object value;
+
+        public GsonWrapper(Object value) {
+            this.value = value;
+        }
     }
 
     private enum Generic {
@@ -42,7 +61,7 @@ public class SerializedGeneric implements Serializable {
             }
 
             @Override
-            public Byte read(DataInputStream in) throws IOException {
+            public @NotNull Byte read(DataInputStream in) throws IOException {
                 return in.readByte();
             }
         }),
@@ -53,7 +72,7 @@ public class SerializedGeneric implements Serializable {
             }
 
             @Override
-            public Short read(DataInputStream in) throws IOException {
+            public @NotNull Short read(DataInputStream in) throws IOException {
                 return in.readShort();
             }
         }),
@@ -64,7 +83,7 @@ public class SerializedGeneric implements Serializable {
             }
 
             @Override
-            public Integer read(DataInputStream in) throws IOException {
+            public @NotNull Integer read(DataInputStream in) throws IOException {
                 return in.readInt();
             }
         }),
@@ -75,7 +94,7 @@ public class SerializedGeneric implements Serializable {
             }
 
             @Override
-            public Long read(DataInputStream in) throws IOException {
+            public @NotNull Long read(DataInputStream in) throws IOException {
                 return in.readLong();
             }
         }),
@@ -86,7 +105,7 @@ public class SerializedGeneric implements Serializable {
             }
 
             @Override
-            public Float read(DataInputStream in) throws IOException {
+            public @NotNull Float read(DataInputStream in) throws IOException {
                 return in.readFloat();
             }
         }),
@@ -97,7 +116,7 @@ public class SerializedGeneric implements Serializable {
             }
 
             @Override
-            public Double read(DataInputStream in) throws IOException {
+            public @NotNull Double read(DataInputStream in) throws IOException {
                 return in.readDouble();
             }
         }),
@@ -108,7 +127,7 @@ public class SerializedGeneric implements Serializable {
             }
 
             @Override
-            public Boolean read(DataInputStream in) throws IOException {
+            public @NotNull Boolean read(DataInputStream in) throws IOException {
                 return in.readBoolean();
             }
         }),
@@ -119,7 +138,7 @@ public class SerializedGeneric implements Serializable {
             }
 
             @Override
-            public String read(DataInputStream in) throws IOException {
+            public @NotNull String read(DataInputStream in) throws IOException {
                 return in.readUTF();
             }
         }),
@@ -127,22 +146,64 @@ public class SerializedGeneric implements Serializable {
         MAP(Map.class, new MapHandler<>(HashMap::new)),
         Set(Set.class, new CollectionHandler<>(HashSet::new)),
         LIST(List.class, new CollectionHandler<>(ArrayList::new)),
-        ;
+        GSON(null, new GenericHandler<Object>() {
+            private final Gson gson = new GsonBuilder().registerTypeAdapter(GsonWrapper.class, new GsonHandler()).create();
+
+            class GsonHandler implements JsonSerializer<Object>, JsonDeserializer<Object> {
+                @Override
+                public Object deserialize(JsonElement jsonElement, Type type, JsonDeserializationContext jdc) throws JsonParseException {
+                    JsonObject json = jsonElement.getAsJsonObject();
+                    String path = json.get("class").getAsString();
+                    JsonElement objData = json.get("data");
+
+                    Class<?> c;
+                    try {
+                        c = Class.forName(path);
+                    } catch (ClassNotFoundException e) {
+                        throw new JsonParseException(e);
+                    }
+
+                    return jdc.deserialize(objData, c);
+                }
+
+                @Override
+                public JsonElement serialize(Object o, Type type, JsonSerializationContext jsc) {
+                    JsonObject json = new JsonObject();
+                    json.addProperty("class", o.getClass().getName());
+                    json.add("data", jsc.serialize(o));
+                    return json;
+                }
+            }
+
+            @Override
+            protected void handling(DataOutputStream out, Object o) throws IOException {
+                String data = gson.toJsonTree(new GsonWrapper(o)).toString();
+                out.writeUTF(data);
+            }
+
+            @Override
+            public @NotNull Object read(DataInputStream in) throws IOException {
+                String data = in.readUTF();
+
+                GsonWrapper json = gson.fromJson(data, GsonWrapper.class);
+                return json.value;
+            }
+        });
 
         private final Class<?> generic;
         private final GenericHandler<?> handler;
 
-        <G> Generic(Class<G> generic, GenericHandler<G> handler) {
+        <G> Generic(@Nullable Class<G> generic, @NotNull GenericHandler<G> handler) {
             this.generic = generic;
             this.handler = handler;
         }
 
         private static Generic getBy(Object o) {
             for (Generic value : values()) {
-                if (value.generic.isInstance(o)) return value;
+                if (value.generic != null && value.generic.isInstance(o)) return value;
             }
 
-            throw new UnsupportedTypeException(null, o);
+            return Generic.GSON;
         }
 
         public static void write(DataOutputStream out, Object o) throws IOException {
@@ -151,12 +212,13 @@ public class SerializedGeneric implements Serializable {
             g.handler.write(out, o);
         }
 
+        @NotNull
         public static Object read(DataInputStream in) throws IOException {
             int id = in.readUnsignedByte();
             return values()[id].handler.read(in);
         }
 
-        private static class MapHandler<M extends Map> extends GenericHandler<M> {
+        private static class MapHandler<M extends Map<?, ?>> extends GenericHandler<M> {
             private final Supplier<M> mapInstance;
 
             public MapHandler(Supplier<M> mapInstance) {
@@ -165,7 +227,7 @@ public class SerializedGeneric implements Serializable {
 
             @Override
             public void handling(DataOutputStream out, M o) throws IOException {
-                Map<Object, Object> map = o;
+                Map<Object, Object> map = (Map<Object, Object>) o;
 
                 int size = map.size();
 
@@ -187,8 +249,8 @@ public class SerializedGeneric implements Serializable {
             }
 
             @Override
-            public M read(DataInputStream in) throws IOException {
-                Map<Object, Object> data = mapInstance.get();
+            public @NotNull M read(DataInputStream in) throws IOException {
+                Map<Object, Object> data = (Map<Object, Object>) mapInstance.get();
 
                 int size = in.readUnsignedShort();
                 for (int i = 0; i < size; i++) {
@@ -228,7 +290,7 @@ public class SerializedGeneric implements Serializable {
             }
 
             @Override
-            public C read(DataInputStream in) throws IOException {
+            public @NotNull C read(DataInputStream in) throws IOException {
                 Collection<Object> list = collectionInstance.get();
 
                 int size = in.readUnsignedShort();
@@ -249,6 +311,7 @@ public class SerializedGeneric implements Serializable {
 
             protected abstract void handling(DataOutputStream out, G o) throws IOException;
 
+            @NotNull
             public abstract G read(DataInputStream in) throws IOException;
         }
     }
