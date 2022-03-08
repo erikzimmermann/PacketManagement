@@ -1,13 +1,18 @@
 package de.codingair.packetmanagement.utils;
 
-import com.google.gson.*;
+import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Multimap;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
-import java.lang.reflect.Type;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class SerializedGeneric implements Serializable {
@@ -21,36 +26,34 @@ public class SerializedGeneric implements Serializable {
         DataOutputStream dos = new DataOutputStream(baos);
         Generic.write(dos, object);
 
-        this.object = baos.toString();
+        this.object = new String(baos.toByteArray(), StandardCharsets.UTF_8);
     }
 
     @Override
     public void write(DataOutputStream out) throws IOException {
-        out.writeUTF(this.object);
+        byte[] data = Base64.getEncoder().encode(getData());
+        out.writeUTF(new String(data, StandardCharsets.UTF_8));
     }
 
     @Override
     public void read(DataInputStream in) throws IOException {
-        this.object = in.readUTF();
+        this.object = new String(Base64.getDecoder().decode(in.readUTF().getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8);
     }
 
     public byte[] getData() {
         return object.getBytes(StandardCharsets.UTF_8);
     }
 
+    @SuppressWarnings ("unchecked")
     @NotNull
-    public Object getObject() throws IOException {
-        ByteArrayInputStream baos = new ByteArrayInputStream(getData());
-        DataInputStream dis = new DataInputStream(baos);
-        return Generic.read(dis);
+    public <T> T getObject() throws IOException {
+        DataInputStream dis = asStream();
+        return (T) Generic.read(dis);
     }
 
-    private static class GsonWrapper {
-        public final Object value;
-
-        public GsonWrapper(Object value) {
-            this.value = value;
-        }
+    @NotNull
+    private DataInputStream asStream() {
+        return new DataInputStream(new ByteArrayInputStream(getData()));
     }
 
     private enum Generic {
@@ -64,6 +67,11 @@ public class SerializedGeneric implements Serializable {
             public @NotNull Byte read(DataInputStream in) throws IOException {
                 return in.readByte();
             }
+
+            @Override
+            public Byte getDefault() {
+                return 0;
+            }
         }),
         SHORT(Short.class, new GenericHandler<Short>() {
             @Override
@@ -74,6 +82,11 @@ public class SerializedGeneric implements Serializable {
             @Override
             public @NotNull Short read(DataInputStream in) throws IOException {
                 return in.readShort();
+            }
+
+            @Override
+            public Short getDefault() {
+                return 0;
             }
         }),
         INT(Integer.class, new GenericHandler<Integer>() {
@@ -86,6 +99,11 @@ public class SerializedGeneric implements Serializable {
             public @NotNull Integer read(DataInputStream in) throws IOException {
                 return in.readInt();
             }
+
+            @Override
+            public Integer getDefault() {
+                return 0;
+            }
         }),
         LONG(Long.class, new GenericHandler<Long>() {
             @Override
@@ -96,6 +114,11 @@ public class SerializedGeneric implements Serializable {
             @Override
             public @NotNull Long read(DataInputStream in) throws IOException {
                 return in.readLong();
+            }
+
+            @Override
+            public Long getDefault() {
+                return 0L;
             }
         }),
         FLOAT(Float.class, new GenericHandler<Float>() {
@@ -108,6 +131,11 @@ public class SerializedGeneric implements Serializable {
             public @NotNull Float read(DataInputStream in) throws IOException {
                 return in.readFloat();
             }
+
+            @Override
+            public Float getDefault() {
+                return 0F;
+            }
         }),
         DOUBLE(Double.class, new GenericHandler<Double>() {
             @Override
@@ -118,6 +146,11 @@ public class SerializedGeneric implements Serializable {
             @Override
             public @NotNull Double read(DataInputStream in) throws IOException {
                 return in.readDouble();
+            }
+
+            @Override
+            public Double getDefault() {
+                return 0D;
             }
         }),
         BOOLEAN(Boolean.class, new GenericHandler<Boolean>() {
@@ -130,6 +163,11 @@ public class SerializedGeneric implements Serializable {
             public @NotNull Boolean read(DataInputStream in) throws IOException {
                 return in.readBoolean();
             }
+
+            @Override
+            public Boolean getDefault() {
+                return false;
+            }
         }),
         STRING(String.class, new GenericHandler<String>() {
             @Override
@@ -141,52 +179,103 @@ public class SerializedGeneric implements Serializable {
             public @NotNull String read(DataInputStream in) throws IOException {
                 return in.readUTF();
             }
+
+            @Override
+            public String getDefault() {
+                return null;
+            }
         }),
         LINKED_MAP(LinkedHashMap.class, new MapHandler<>(LinkedHashMap::new)),
         MAP(Map.class, new MapHandler<>(HashMap::new)),
+        MULTI_MAP(Multimap.class, new MultiMapHandler<>(() -> LinkedHashMultimap.create())),
         Set(Set.class, new CollectionHandler<>(HashSet::new)),
         LIST(List.class, new CollectionHandler<>(ArrayList::new)),
-        GSON(null, new GenericHandler<Object>() {
-            private final Gson gson = new GsonBuilder().registerTypeAdapter(GsonWrapper.class, new GsonHandler()).create();
+        UNKNOWN(null, new GenericHandler<Object>() {
 
-            class GsonHandler implements JsonSerializer<Object>, JsonDeserializer<Object> {
-                @Override
-                public Object deserialize(JsonElement jsonElement, Type type, JsonDeserializationContext jdc) throws JsonParseException {
-                    JsonObject json = jsonElement.getAsJsonObject();
-                    String path = json.get("class").getAsString();
-                    JsonElement objData = json.get("data");
+            private void fields(Class<?> c, Consumer<Field> consumer) throws IOException {
+                for (Field f : c.getDeclaredFields()) {
+                    int flags = f.getModifiers();
+                    if (Modifier.isStatic(flags) || Modifier.isTransient(flags)) continue;
 
-                    Class<?> c;
+                    f.setAccessible(true);
+
                     try {
-                        c = Class.forName(path);
-                    } catch (ClassNotFoundException e) {
-                        throw new JsonParseException(e);
+                        Field modifiersField = Field.class.getDeclaredField("modifiers");
+                        modifiersField.setAccessible(true);
+                        modifiersField.setInt(f, f.getModifiers() & ~Modifier.FINAL);
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    } catch (NoSuchFieldException ignored) {
                     }
 
-                    return jdc.deserialize(objData, c);
+                    try {
+                        consumer.accept(f);
+                    } catch (RuntimeException ex) {
+                        if (ex.getCause() instanceof IOException) throw (IOException) ex.getCause();
+                        else throw ex;
+                    }
                 }
 
-                @Override
-                public JsonElement serialize(Object o, Type type, JsonSerializationContext jsc) {
-                    JsonObject json = new JsonObject();
-                    json.addProperty("class", o.getClass().getName());
-                    json.add("data", jsc.serialize(o));
-                    return json;
-                }
+                if (c.getSuperclass() != null) fields(c.getSuperclass(), consumer);
             }
 
             @Override
             protected void handling(DataOutputStream out, Object o) throws IOException {
-                String data = gson.toJsonTree(new GsonWrapper(o)).toString();
-                out.writeUTF(data);
+                out.writeUTF(o.getClass().getName());
+                fields(o.getClass(), field -> {
+                    try {
+                        Generic.write(out, field.get(o));
+                    } catch (IOException | IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
             }
 
             @Override
             public @NotNull Object read(DataInputStream in) throws IOException {
-                String data = in.readUTF();
+                String path = in.readUTF();
 
-                GsonWrapper json = gson.fromJson(data, GsonWrapper.class);
-                return json.value;
+                try {
+                    Class<?> c = Class.forName(path);
+
+                    Constructor<?> con;
+                    try {
+                        con = c.getDeclaredConstructor();
+                    } catch (NoSuchMethodException ex) {
+                        con = Arrays.stream(c.getDeclaredConstructors())
+                                .min(Comparator.comparingInt(Constructor::getParameterCount))
+                                .orElseThrow(() -> new NoSuchMethodException("No constructor found for " + c.getName()));
+                    }
+
+                    con.setAccessible(true);
+
+                    Class<?>[] para = con.getParameterTypes();
+                    Object[] os = new Object[para.length];
+                    if (para.length > 0) {
+                        for (int i = 0; i < para.length; i++) {
+                            os[i] = getBy(para[i]).handler.getDefault();
+                        }
+                    }
+
+                    Object o = con.newInstance(os);
+
+                    fields(o.getClass(), field -> {
+                        try {
+                            field.set(o, Generic.read(in));
+                        } catch (IOException | IllegalAccessException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+
+                    return o;
+                } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                    throw new IOException(e);
+                }
+            }
+
+            @Override
+            public Object getDefault() {
+                return null;
             }
         });
 
@@ -199,11 +288,27 @@ public class SerializedGeneric implements Serializable {
         }
 
         private static Generic getBy(Object o) {
+            return getBy(o.getClass());
+        }
+
+        private static Class<?> toNonPrimitive(Class<?> c) {
+            if (c == byte.class) return Byte.class;
+            else if (c == short.class) return Short.class;
+            else if (c == int.class) return Integer.class;
+            else if (c == long.class) return Long.class;
+            else if (c == float.class) return Float.class;
+            else if (c == double.class) return Double.class;
+            else if (c == boolean.class) return Boolean.class;
+            else return c;
+        }
+
+        private static Generic getBy(Class<?> c) {
+            c = toNonPrimitive(c);
             for (Generic value : values()) {
-                if (value.generic != null && value.generic.isInstance(o)) return value;
+                if (value.generic != null && (value.generic == c || value.generic.isAssignableFrom(c))) return value;
             }
 
-            return Generic.GSON;
+            return Generic.UNKNOWN;
         }
 
         public static void write(DataOutputStream out, Object o) throws IOException {
@@ -218,7 +323,7 @@ public class SerializedGeneric implements Serializable {
             return values()[id].handler.read(in);
         }
 
-        private static class MapHandler<M extends Map<?, ?>> extends GenericHandler<M> {
+        private static class MapHandler<M extends Map<Object, Object>> extends GenericHandler<M> {
             private final Supplier<M> mapInstance;
 
             public MapHandler(Supplier<M> mapInstance) {
@@ -226,9 +331,7 @@ public class SerializedGeneric implements Serializable {
             }
 
             @Override
-            public void handling(DataOutputStream out, M o) throws IOException {
-                Map<Object, Object> map = (Map<Object, Object>) o;
-
+            public void handling(DataOutputStream out, M map) throws IOException {
                 int size = map.size();
 
                 //max unsigned short value
@@ -236,12 +339,10 @@ public class SerializedGeneric implements Serializable {
 
                 out.writeShort(size);
                 for (Map.Entry<Object, Object> e : map.entrySet()) {
-                    SerializedGeneric key = new SerializedGeneric(e.getKey());
-                    key.write(out);
+                    Generic.write(out, e.getKey());
 
-                    SerializedGeneric value = new SerializedGeneric(e.getValue());
                     try {
-                        value.write(out);
+                        Generic.write(out, e.getValue());
                     } catch (UnsupportedTypeException ex) {
                         throw new UnsupportedTypeException(e.getKey(), ex.o);
                     }
@@ -250,24 +351,76 @@ public class SerializedGeneric implements Serializable {
 
             @Override
             public @NotNull M read(DataInputStream in) throws IOException {
-                Map<Object, Object> data = (Map<Object, Object>) mapInstance.get();
+                M data = mapInstance.get();
 
                 int size = in.readUnsignedShort();
                 for (int i = 0; i < size; i++) {
-                    SerializedGeneric key = new SerializedGeneric();
-                    key.read(in);
-
-                    SerializedGeneric value = new SerializedGeneric();
-                    value.read(in);
-
-                    data.put(key.getObject(), value.getObject());
+                    data.put(Generic.read(in), Generic.read(in));
                 }
 
-                return (M) data;
+                return data;
+            }
+
+            @Override
+            public M getDefault() {
+                return mapInstance.get();
             }
         }
 
-        private static class CollectionHandler<C extends Collection> extends GenericHandler<C> {
+        private static class MultiMapHandler<M extends Multimap<Object, Object>> extends GenericHandler<M> {
+            private final Supplier<M> mapInstance;
+
+            public MultiMapHandler(Supplier<M> mapInstance) {
+                this.mapInstance = mapInstance;
+            }
+
+            @Override
+            public void handling(DataOutputStream out, M map) throws IOException {
+                int size = map.size();
+
+                //max unsigned short value
+                if (size > 65535) throw new IllegalArgumentException("Cannot serialize maps with a size > 65.535!");
+
+                out.writeShort(size);
+                for (Object key : map.keySet()) {
+                    Generic.write(out, key);
+
+                    Collection<Object> values = map.get(key);
+                    out.writeShort(values.size());
+                    for (Object value : values) {
+                        try {
+                            Generic.write(out, value);
+                        } catch (UnsupportedTypeException ex) {
+                            throw new UnsupportedTypeException(key, ex.o);
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public @NotNull M read(DataInputStream in) throws IOException {
+                M data = mapInstance.get();
+
+                int size = in.readUnsignedShort();
+                for (int i = 0; i < size; i++) {
+                    Object key = Generic.read(in);
+
+                    int values = in.readUnsignedShort();
+                    for (int i1 = 0; i1 < values; i1++) {
+                        data.put(key, Generic.read(in));
+                    }
+                }
+
+                return data;
+            }
+
+            @Override
+            public M getDefault() {
+                return mapInstance.get();
+            }
+        }
+
+        private static class CollectionHandler<C extends Collection<Object>> extends GenericHandler<C> {
             private final Supplier<C> collectionInstance;
 
             public CollectionHandler(Supplier<C> collectionInstance) {
@@ -275,37 +428,39 @@ public class SerializedGeneric implements Serializable {
             }
 
             @Override
-            public void handling(DataOutputStream out, C o) throws IOException {
-                Collection<Object> list = o;
-                int size = list.size();
+            public void handling(DataOutputStream out, C collection) throws IOException {
+                int size = collection.size();
 
                 //max unsigned short value
                 if (size > 65535) throw new IllegalArgumentException("Cannot serialize lists with a size > 65.535!");
 
                 out.writeShort(size);
-                for (Object data : list) {
-                    SerializedGeneric gen = new SerializedGeneric(data);
-                    gen.write(out);
+                for (Object data : collection) {
+                    Generic.write(out, data);
                 }
             }
 
             @Override
             public @NotNull C read(DataInputStream in) throws IOException {
-                Collection<Object> list = collectionInstance.get();
+                C list = collectionInstance.get();
 
                 int size = in.readUnsignedShort();
                 for (int i = 0; i < size; i++) {
-                    SerializedGeneric gen = new SerializedGeneric();
-                    gen.read(in);
-                    list.add(gen.getObject());
+                    list.add(Generic.read(in));
                 }
 
-                return (C) list;
+                return list;
+            }
+
+            @Override
+            public C getDefault() {
+                return collectionInstance.get();
             }
         }
 
         private static abstract class GenericHandler<G> {
             public void write(DataOutputStream out, Object o) throws IOException {
+                //noinspection unchecked
                 handling(out, (G) o);
             }
 
@@ -313,6 +468,8 @@ public class SerializedGeneric implements Serializable {
 
             @NotNull
             public abstract G read(DataInputStream in) throws IOException;
+
+            public abstract G getDefault();
         }
     }
 
