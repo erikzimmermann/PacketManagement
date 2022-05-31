@@ -9,7 +9,7 @@
 <dependency>  
   <groupId>com.github.CodingAir</groupId>
   <artifactId>PacketManagement</artifactId>
-  <version>1.17</version>
+  <version>1.18</version>
   <scope>compile</scope>
 </dependency>
 ```
