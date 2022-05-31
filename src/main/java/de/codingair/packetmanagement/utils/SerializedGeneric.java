@@ -10,13 +10,15 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class SerializedGeneric implements Serializable {
-    private String object;
+    public static final Charset CHARSET = StandardCharsets.UTF_8;
+    private byte[] object;
 
     public SerializedGeneric() {
     }
@@ -26,22 +28,22 @@ public class SerializedGeneric implements Serializable {
         DataOutputStream dos = new DataOutputStream(baos);
         Generic.write(dos, object);
 
-        this.object = new String(baos.toByteArray(), StandardCharsets.UTF_8);
+        this.object = baos.toByteArray();
     }
 
     @Override
     public void write(DataOutputStream out) throws IOException {
         byte[] data = Base64.getEncoder().encode(getData());
-        out.writeUTF(new String(data, StandardCharsets.UTF_8));
+        out.writeUTF(new String(data, CHARSET));
     }
 
     @Override
     public void read(DataInputStream in) throws IOException {
-        this.object = new String(Base64.getDecoder().decode(in.readUTF().getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8);
+        this.object = Base64.getDecoder().decode(in.readUTF().getBytes(CHARSET));
     }
 
     public byte[] getData() {
-        return object.getBytes(StandardCharsets.UTF_8);
+        return object;
     }
 
     @SuppressWarnings ("unchecked")
