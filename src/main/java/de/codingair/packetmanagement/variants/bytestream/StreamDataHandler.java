@@ -1,6 +1,5 @@
 package de.codingair.packetmanagement.variants.bytestream;
 
-import com.google.common.collect.HashBiMap;
 import de.codingair.packetmanagement.DataHandler;
 import de.codingair.packetmanagement.exceptions.MalformedPacketException;
 import de.codingair.packetmanagement.exceptions.PacketException;
@@ -17,10 +16,12 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
 import java.lang.reflect.InvocationTargetException;
+import java.util.HashMap;
 import java.util.UUID;
 
 public abstract class StreamDataHandler<C> extends DataHandler<C, byte[]> {
-    private final HashBiMap<Class<? extends Packet>, Short> register = HashBiMap.create();
+    private final HashMap<Class<? extends Packet>, Short> register = new HashMap<>();
+    private final HashMap<Short, Class<? extends Packet>> registerInverse = new HashMap<>();
     private Short id;
 
     public StreamDataHandler(@NotNull String channelName, @NotNull Proxy proxy) {
@@ -50,37 +51,46 @@ public abstract class StreamDataHandler<C> extends DataHandler<C, byte[]> {
     protected void registerPacket(@NotNull Class<? extends Packet> sending) {
         if (id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
         if (register.containsKey(sending)) throw new IllegalStateException("Packet already registered: " + sending);
+        if (registerInverse.containsKey(id)) throw new IllegalStateException("Id already registered: " + id);
 
-        register.put(sending, id++);
+        register.put(sending, id);
+        registerInverse.put(id, sending);
+        id++;
     }
 
     protected <P extends Packet> void registerPacket(@NotNull Class<? extends P> receiving, @NotNull PacketHandler<P> handler) {
         if (id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
         if (register.containsKey(receiving)) throw new IllegalStateException("Packet already registered: " + receiving);
+        if (registerInverse.containsKey(id)) throw new IllegalStateException("Id already registered: " + id);
 
-        register.put(receiving, id++);
+        register.put(receiving, id);
+        registerInverse.put(id, receiving);
+        id++;
         handlers.put(receiving, handler);
     }
 
-    public boolean registerPacket(short id, @NotNull Class<? extends Packet> sending) {
+    public void registerPacket(short id, @NotNull Class<? extends Packet> sending) {
         if (this.id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
         if (register.containsKey(sending)) throw new IllegalStateException("Packet already registered: " + sending);
+        if (registerInverse.containsKey(id)) throw new IllegalStateException("Id already registered: " + id);
 
-        return register.put(sending, id) == null;
+        register.put(sending, id);
+        registerInverse.put(id, sending);
     }
 
-    public <P extends Packet> boolean registerPacket(short id, @NotNull Class<? extends P> receiving, @NotNull PacketHandler<P> handler) {
+    public <P extends Packet> void registerPacket(short id, @NotNull Class<? extends P> receiving, @NotNull PacketHandler<P> handler) {
         if (this.id == null) throw new IllegalStateException("Packet classes cannot be registered on runtime!");
         if (register.containsKey(receiving)) throw new IllegalStateException("Packet already registered: " + receiving);
+        if (registerInverse.containsKey(id)) throw new IllegalStateException("Id already registered: " + id);
 
-        if (register.put(receiving, id) != null) return false;
+        register.put(receiving, id);
+        registerInverse.put(id, receiving);
         handlers.put(receiving, handler);
-        return true;
     }
 
     @NotNull
     protected <T> T formPacket(short id) throws UnknownPacketException, IllegalAccessException, InstantiationException {
-        Class<?> c = register.inverse().get(id);
+        Class<?> c = registerInverse.get(id);
         if (c == null) throw new UnknownPacketException("The packet id " + id + " is not associated with a packet class!");
 
         try {

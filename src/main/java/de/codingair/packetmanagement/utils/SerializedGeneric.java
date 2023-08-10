@@ -1,7 +1,5 @@
 package de.codingair.packetmanagement.utils;
 
-import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Multimap;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -189,7 +187,6 @@ public class SerializedGeneric implements Serializable {
         }),
         LINKED_MAP(LinkedHashMap.class, new MapHandler<>(LinkedHashMap::new)),
         MAP(Map.class, new MapHandler<>(HashMap::new)),
-        MULTI_MAP(Multimap.class, new MultiMapHandler<>(() -> LinkedHashMultimap.create())),
         Set(Set.class, new CollectionHandler<>(HashSet::new)),
         LIST(List.class, new CollectionHandler<>(ArrayList::new)),
         UNKNOWN(null, new GenericHandler<Object>() {
@@ -387,59 +384,6 @@ public class SerializedGeneric implements Serializable {
                 int size = in.readUnsignedShort();
                 for (int i = 0; i < size; i++) {
                     data.put(Generic.read(in), Generic.read(in));
-                }
-
-                return data;
-            }
-
-            @Override
-            public M getDefault() {
-                return mapInstance.get();
-            }
-        }
-
-        private static class MultiMapHandler<M extends Multimap<Object, Object>> extends GenericHandler<M> {
-            private final Supplier<M> mapInstance;
-
-            public MultiMapHandler(Supplier<M> mapInstance) {
-                this.mapInstance = mapInstance;
-            }
-
-            @Override
-            public void handling(DataOutputStream out, M map) throws IOException {
-                int size = map.size();
-
-                //max unsigned short value
-                if (size > 65535) throw new IllegalArgumentException("Cannot serialize maps with a size > 65.535!");
-
-                out.writeShort(size);
-                for (Object key : map.keySet()) {
-                    Generic.write(out, key);
-
-                    Collection<Object> values = map.get(key);
-                    out.writeShort(values.size());
-                    for (Object value : values) {
-                        try {
-                            Generic.write(out, value);
-                        } catch (UnsupportedTypeException ex) {
-                            throw new UnsupportedTypeException(key, ex.o);
-                        }
-                    }
-                }
-            }
-
-            @Override
-            public @NotNull M read(DataInputStream in) throws IOException {
-                M data = mapInstance.get();
-
-                int size = in.readUnsignedShort();
-                for (int i = 0; i < size; i++) {
-                    Object key = Generic.read(in);
-
-                    int values = in.readUnsignedShort();
-                    for (int i1 = 0; i1 < values; i1++) {
-                        data.put(key, Generic.read(in));
-                    }
                 }
 
                 return data;
