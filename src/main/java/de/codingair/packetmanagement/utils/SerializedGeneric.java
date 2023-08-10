@@ -279,6 +279,35 @@ public class SerializedGeneric implements Serializable {
             public Object getDefault() {
                 return null;
             }
+        }),
+        @SuppressWarnings ("rawtypes")
+        ENUM(Enum.class, new GenericHandler<Enum>() {
+            @Override
+            protected void handling(DataOutputStream out, Enum o) throws IOException {
+                out.writeUTF(o.getClass().getName());
+                out.writeUTF(o.name());
+            }
+
+            @Override
+            public @NotNull Enum<?> read(DataInputStream in) throws IOException {
+                String path = in.readUTF();
+                String name = in.readUTF();
+
+                try {
+                    Class<?> c = Class.forName(path);
+                    if (c.isEnum()) {
+                        //noinspection unchecked
+                        return Enum.valueOf((Class<? extends Enum>) c, name);
+                    } else throw new IllegalStateException("Class " + path + " is not an enum");
+                } catch (ClassNotFoundException e) {
+                    throw new IOException(e);
+                }
+            }
+
+            @Override
+            public Enum<?> getDefault() {
+                return null;
+            }
         });
 
         private final Class<?> generic;

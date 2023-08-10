@@ -1,63 +1,18 @@
 package de.codingair.packetmanagement.test.utils;
 
 import de.codingair.packetmanagement.utils.SerializedGeneric;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Objects;
 
 class SerializedGenericTest {
-
-    @Test
-    void testFloat() throws IOException {
-        SerializedGeneric g = new SerializedGeneric(0.5F);
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        DataOutputStream out = new DataOutputStream(baos);
-        g.write(out);
-
-        DataInputStream in = new DataInputStream(new ByteArrayInputStream(baos.toByteArray()));
-        g = new SerializedGeneric();
-        g.read(in);
-
-        Assertions.assertEquals(0.5F, (float) g.getObject());
-    }
-
-    @Test
-    void testByte() throws IOException {
-        SerializedGeneric g = new SerializedGeneric((byte) -12);
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        DataOutputStream out = new DataOutputStream(baos);
-        g.write(out);
-
-        DataInputStream in = new DataInputStream(new ByteArrayInputStream(baos.toByteArray()));
-        g = new SerializedGeneric();
-        g.read(in);
-
-        Assertions.assertEquals((byte) -12, (byte) g.getObject());
-    }
-
-    @Test
-    void testInt() throws IOException {
-        SerializedGeneric g = new SerializedGeneric(2975);
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        DataOutputStream out = new DataOutputStream(baos);
-        g.write(out);
-
-        DataInputStream in = new DataInputStream(new ByteArrayInputStream(baos.toByteArray()));
-        g = new SerializedGeneric();
-        g.read(in);
-
-        Assertions.assertEquals(2975, (int) g.getObject());
-    }
 
     @Test
     void testGeneral() throws IOException {
@@ -91,10 +46,8 @@ class SerializedGenericTest {
         Assertions.assertEquals(test, result);
     }
 
-    @Test
-    void testString() throws IOException {
-        SerializedGeneric g = new SerializedGeneric("v");
-
+    @NotNull
+    private static SerializedGeneric performWriteRead(SerializedGeneric g) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(baos);
         g.write(out);
@@ -102,6 +55,42 @@ class SerializedGenericTest {
         DataInputStream in = new DataInputStream(new ByteArrayInputStream(baos.toByteArray()));
         g = new SerializedGeneric();
         g.read(in);
+
+        return g;
+    }
+
+    @Test
+    void testFloat() throws IOException {
+        SerializedGeneric g = new SerializedGeneric(0.5F);
+
+        g = performWriteRead(g);
+
+        Assertions.assertEquals(0.5F, (float) g.getObject());
+    }
+
+    @Test
+    void testByte() throws IOException {
+        SerializedGeneric g = new SerializedGeneric((byte) -12);
+
+        g = performWriteRead(g);
+
+        Assertions.assertEquals((byte) -12, (byte) g.getObject());
+    }
+
+    @Test
+    void testInt() throws IOException {
+        SerializedGeneric g = new SerializedGeneric(2975);
+
+        g = performWriteRead(g);
+
+        Assertions.assertEquals(2975, (int) g.getObject());
+    }
+
+    @Test
+    void testString() throws IOException {
+        SerializedGeneric g = new SerializedGeneric("v");
+
+        g = performWriteRead(g);
 
         Assertions.assertEquals("v", g.getObject());
     }
@@ -110,13 +99,7 @@ class SerializedGenericTest {
     void testNotInt() throws IOException {
         SerializedGeneric g = new SerializedGeneric(1);
 
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        DataOutputStream out = new DataOutputStream(baos);
-        g.write(out);
-
-        DataInputStream in = new DataInputStream(new ByteArrayInputStream(baos.toByteArray()));
-        g = new SerializedGeneric();
-        g.read(in);
+        g = performWriteRead(g);
 
         assert !Objects.equals((byte) 1, g.getObject());
     }
@@ -130,17 +113,48 @@ class SerializedGenericTest {
 
         SerializedGeneric g = new SerializedGeneric(map);
 
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        DataOutputStream out = new DataOutputStream(baos);
-        g.write(out);
+        g = performWriteRead(g);
 
-        DataInputStream in = new DataInputStream(new ByteArrayInputStream(baos.toByteArray()));
-        SerializedGeneric serialized = new SerializedGeneric();
-        serialized.read(in);
-
+        SerializedGeneric finalG = g;
         Assertions.assertDoesNotThrow(() -> {
-            LinkedHashMap<Object, Object> result = serialized.getObject();
+            LinkedHashMap<Object, Object> result = finalG.getObject();
             Assertions.assertEquals(map, result);
         });
+    }
+
+    @Test
+    void testEnum() throws IOException {
+        SerializedGeneric g = new SerializedGeneric(new TestClass(TestEnum.A));
+
+        g = performWriteRead(g);
+
+        TestClass serialized = g.getObject();
+        assert Objects.equals(TestEnum.A, serialized.getTestEnum());
+    }
+
+    private static class TestClass {
+        private final TestEnum testEnum;
+
+        public TestClass(TestEnum testEnum) {
+            this.testEnum = testEnum;
+        }
+
+        public TestEnum getTestEnum() {
+            return testEnum;
+        }
+    }
+
+    private enum TestEnum {
+        A("A"), B("B"), C("C");
+
+        private final String name;
+
+        TestEnum(String name) {
+            this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
     }
 }
